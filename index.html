@@ -8,6 +8,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+  // Fallback loader: if the CDNJS scripts above were blocked (corporate firewall, ad-blocker, etc.),
+  // fetch the same libraries from a second CDN before the app tries to use them.
+  function ensureLib(globalName, fallbackSrc){
+    return new Promise((resolve,reject)=>{
+      if(window[globalName]){ resolve(); return; }
+      const s = document.createElement('script');
+      s.src = fallbackSrc;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Could not load '+globalName+' from any source'));
+      document.head.appendChild(s);
+    });
+  }
+</script>
 <style>
   :root{
     --ink:#1B2A20;
@@ -951,6 +965,10 @@ async function loadData(){
   document.getElementById('syncDot').classList.remove('err');
   document.getElementById('syncText').textContent = 'Connecting to sheet…';
   try{
+    await Promise.all([
+      ensureLib('Papa', 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js'),
+      ensureLib('Chart', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js')
+    ]);
     const [prodRows, custRows] = await Promise.all([ fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK), fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK) ]);
     STATE.products = parseProducts(prodRows);
     STATE.customers = parseCustomers(custRows);
@@ -966,7 +984,11 @@ async function loadData(){
     document.getElementById('syncText').textContent = 'Sync failed';
     const eb = document.getElementById('errorBanner');
     eb.style.display='flex';
-    eb.textContent = "Couldn't load live data from the Google Sheet (" + err.message + "). Make sure both tabs are still published to the web as CSV, then hit Refresh.";
+    if(err.message && err.message.includes('load')){
+      eb.textContent = "Couldn't load required chart libraries (" + err.message + "). This is usually a firewall, ad-blocker, or network security setting blocking script downloads — try a different network, or disable ad-blocking extensions for this page, then hit Refresh.";
+    } else {
+      eb.textContent = "Couldn't load live data from the Google Sheet (" + err.message + "). Make sure both tabs are still published to the web as CSV, then hit Refresh.";
+    }
   }
 }
 
