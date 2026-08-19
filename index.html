@@ -178,7 +178,6 @@
 
     <div class="filters-block">
       <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="t1-year-pills"></div></div>
-      <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="t1-product-pills"></div></div>
     </div>
 
     <div class="kpi-grid" id="p1-kpis"></div>
@@ -686,34 +685,31 @@ function initTier1(){
   const lastIdx = years.length-1;
   document.getElementById('hdr-sub').textContent = `Overview · Main Products · MCP & By-Products · Customers — ${years[0]}–${years[lastIdx]}`;
 
-  let yearFilter='ALL', productFilter='ALL';
+  let yearFilter='ALL';
   makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
-  makePills('t1-product-pills', [{value:'ALL',label:'All Products'}, ...DATA.categories.map(c=>({value:c,label:titleCase(c)}))], productFilter, v=>{ productFilter=v; render(); });
 
-  function scopedCats(){ return productFilter==='ALL' ? DATA.categories : [productFilter]; }
   function totalsByYear(cats){
     return years.map(y => DATA.products.filter(p=>cats.includes(p.category)).reduce((s,p)=> s+((p.years[y]||{}).amount||0), 0));
   }
 
   function render(){
-    const cats = scopedCats();
+    const cats = DATA.categories;
     const arr = totalsByYear(cats);
     const yIdx = yearFilter==='ALL' ? lastIdx : years.indexOf(yearFilter);
     const yLabel = years[yIdx];
     const val = arr[yIdx], prevVal = yIdx>0 ? arr[yIdx-1] : null;
     const growth = prevVal ? (val-prevVal)/prevVal*100 : null;
     const allTime = arr.reduce((a,b)=>a+b,0);
-    const prodTag = productFilter==='ALL' ? '' : titleCase(productFilter) + ' ';
     const bestYearIdx = arr.indexOf(Math.max(...arr));
 
     const catTotalsAtY = DATA.categories.map(c => (DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+((p.years[yLabel]||{}).amount||0),0)));
     const leadIdx = catTotalsAtY.indexOf(Math.max(...catTotalsAtY));
 
     const kpis = [
-      {lbl:`${prodTag}All-Time Total (${years[0]}–${years[lastIdx]})`, val:PHP(allTime,{compact:true}), delta:`${years.length} years tracked`, dir:'flat', border:C.olive},
-      {lbl:`Strongest Year (${prodTag||'Total'})`, val:String(years[bestYearIdx]), delta:PHP(arr[bestYearIdx],{compact:true}), dir:'flat', border:C.oliveDeep},
-      {lbl:`${yLabel} ${prodTag}Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark},
-      {lbl:`Product Lines in View`, val:String(cats.length), delta:`of ${DATA.categories.length} total`, dir:'flat', border:C.ink},
+      {lbl:`All-Time Total (${years[0]}–${years[lastIdx]})`, val:PHP(allTime,{compact:true}), delta:`${years.length} years tracked`, dir:'flat', border:C.olive},
+      {lbl:`Strongest Year`, val:String(years[bestYearIdx]), delta:PHP(arr[bestYearIdx],{compact:true}), dir:'flat', border:C.oliveDeep},
+      {lbl:`${yLabel} Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark},
+      {lbl:`Product Lines`, val:String(cats.length), delta:`categories tracked`, dir:'flat', border:C.ink},
       {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.inkSoft},
     ];
     document.getElementById('p1-kpis').innerHTML = kpis.map(k=>`
@@ -723,17 +719,13 @@ function initTier1(){
       </div>`).join('');
 
     const hIdx = yearFilter==='ALL' ? null : yIdx;
-    document.getElementById('t1-chart1-title').textContent = productFilter==='ALL' ? 'Total sales by year' : `${titleCase(productFilter)} sales by year`;
-    document.getElementById('t1-chart1-cap').textContent = (productFilter==='ALL' ? 'Stacked by product line, in PHP' : 'In PHP') + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
+    document.getElementById('t1-chart1-title').textContent = 'Total sales by year';
+    document.getElementById('t1-chart1-cap').textContent = 'Stacked by product line, in PHP' + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
 
-    if(productFilter==='ALL'){
-      drawBarChart('chart-overall-stack', { labels:years, series:DATA.categories.map(c=>({label:titleCase(c), color:DATA.catColor[c], data:totalsByYear([c])})), valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), highlightIndex:hIdx });
-    } else {
-      drawBarChart('chart-overall-stack', { labels:years, series:[{label:titleCase(productFilter), color:C.oliveDark, data:arr}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:hIdx });
-    }
+    drawBarChart('chart-overall-stack', { labels:years, series:DATA.categories.map(c=>({label:titleCase(c), color:DATA.catColor[c], data:totalsByYear([c])})), valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), highlightIndex:hIdx });
 
     const growthArr = arr.map((v,i)=> i===0?null:(arr[i-1]?(v-arr[i-1])/arr[i-1]*100:null));
-    document.getElementById('t1-chart2-title').textContent = productFilter==='ALL' ? 'Year‑over‑year growth' : `${titleCase(productFilter)} YoY growth`;
+    document.getElementById('t1-chart2-title').textContent = 'Year‑over‑year growth';
     document.getElementById('t1-chart2-cap').textContent = '% change in sales value' + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
     drawLineChart('chart-yoy-growth', { labels:years, series:[{label:'YoY growth', color:C.oliveDark, bold:true, data:growthArr}], valueFmt:(v,full)=>(v>0&&full?'+':'')+v.toFixed(1)+'%', area:true, legend:false, highlightIndex:hIdx });
 
