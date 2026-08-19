@@ -3,384 +3,584 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>M. Montesclaros Farms Inc. — Year-over-Year Sales Analysis</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script>
-  function ensureLib(globalName, fallbackSrc){
-    return new Promise((resolve,reject)=>{
-      if(window[globalName]){ resolve(); return; }
-      const s = document.createElement('script');
-      s.src = fallbackSrc;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Could not load '+globalName+' from any source'));
-      document.head.appendChild(s);
-    });
-  }
-</script>
+<title>MMFI Year-over-Year Sales Analysis</title>
 <style>
   :root{
-    --bg:#EEF0E8;
-    --card:#FFFFFF;
-    --border:#DEE1D4;
-    --ink:#171812;
-    --ink-soft:#6E7166;
-    --olive:#4F5D23;
-    --olive-dark:#333D16;
-    --olive-light:#EEF0DE;
-    --gray1:#8E8E86;
-    --gray2:#33332F;
-    --tan:#B8A876;
-    --sage:#B7C77A;
-    --up:#3F7D3A;
-    --down:#B23A3A;
-    --header-bg:#121310;
-    --lime:#D7E36A;
+    --ink:#0d0d0d; --ink-soft:#333333; --grey:#666666; --grey-soft:#999999;
+    --line:#dcdcdc; --paper:#f2f2f2; --card:#ffffff;
+    --olive:#8DB600; --olive-dark:#5c8000; --olive-deep:#4a6600;
+    --hover-tan:#f3e7d8; --scroll-tan:#d9c4a3; --cream:#fff8f0;
   }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ margin:0; padding:0; }
   body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'IBM Plex Sans', sans-serif;
-    -webkit-font-smoothing:antialiased;
+    min-height:100vh; background:var(--paper); color:var(--ink);
+    font-family:'Georgia','Times New Roman',serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .num-font{ font-family:'Courier New',monospace; }
+  img,svg{ max-width:100%; }
+  svg text{ font-family:'Georgia','Times New Roman',serif; }
+  table{ border-collapse:collapse; width:100%; }
+  th{ cursor:default; user-select:none; }
+  tr:hover td{ background:var(--hover-tan) !important; }
+  ::-webkit-scrollbar{ height:8px; width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--scroll-tan); border-radius:4px; }
+  ::selection{ background:var(--olive); color:#fff8f0; }
+
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:4px; min-width:0; }
+
+  .btn{
+    cursor:pointer; border:1px solid var(--olive); background:transparent; color:var(--olive-dark);
+    padding:6px 14px; font-size:12.5px; border-radius:3px; font-family:inherit; letter-spacing:.02em;
+    transition:all .15s; white-space:nowrap;
+  }
+  .btn:hover{ background:var(--olive); color:var(--cream); }
+  .btn.active{ background:var(--olive-dark); color:var(--cream); border-color:var(--olive-dark); }
+  a.btn{ text-decoration:none; display:inline-block; }
+
+  /* ---- header ---- */
+  .hdr{ background:var(--ink); color:#f2f2f2; padding:26px 20px 22px; border-bottom:4px solid var(--olive); }
+  .hdr-inner{ max-width:1200px; margin:0 auto; }
+  .eyebrow{ font-size:11px; letter-spacing:.2em; color:var(--olive); margin-bottom:6px; text-transform:uppercase; }
+  .hdr h1{ font-size:26px; font-weight:700; letter-spacing:.01em; margin:0; }
+  .hdr .sub{ font-size:13px; color:var(--grey-soft); margin-top:4px; }
+  .hdr .sync{ font-size:11px; color:var(--olive); margin-top:10px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; }
+  .hdr .sync .sdot{ width:6px; height:6px; border-radius:50%; background:var(--olive); display:inline-block; }
+  .hdr .sync .sdot.err{ background:#c97a5c; }
+  .hdr .sync button{ background:transparent; border:1px solid rgba(141,182,0,0.5); color:#f2f2f2; font-family:'Courier New',monospace; font-size:10.5px; padding:3px 9px; border-radius:3px; cursor:pointer; }
+  .hdr .sync button:hover{ background:rgba(141,182,0,0.15); }
+
+  /* ---- quick nav ---- */
+  .qnav-wrap{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+  .qnav{ max-width:1200px; margin:0 auto; padding:10px 20px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* ---- main ---- */
+  .wrap{ max-width:1200px; margin:0 auto; padding:22px 20px 60px; }
+  .tier{ border-top:6px solid var(--ink); padding-top:22px; margin-top:40px; scroll-margin-top:64px; display:none; }
+  .tier.active{ display:block; }
+  .section-title{ font-size:20px; font-weight:700; color:var(--ink); margin-bottom:2px; }
+  .section-sub{ font-size:12px; color:var(--grey); margin-bottom:14px; }
+
+  /* ---- kpis ---- */
+  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:14px; margin-bottom:22px; }
+  .kpi{ padding:16px 18px; }
+  .kpi .lbl{ font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--grey); margin-bottom:8px; }
+  .kpi .val{ font-size:22px; font-weight:700; line-height:1.15; }
+  .kpi .delta{ font-size:11px; color:var(--grey); margin-top:4px; }
+  .kpi .delta.up{ color:var(--olive-dark); } .kpi .delta.down{ color:#8a3b2b; }
+
+  /* ---- chart cards ---- */
+  .card-pad{ padding:20px 20px 10px; }
+  .card-title{ font-size:15px; font-weight:700; margin-bottom:4px; }
+  .card-cap{ font-size:12px; color:var(--grey); margin-bottom:10px; }
+  .chart-h{ height:280px; position:relative; margin-bottom:6px; }
+  .chart-h.tall{ height:320px; }
+  .chart-h.short{ height:220px; }
+  .chart-h svg{ display:block; }
+
+  .chart-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:18px; }
+  .chart-grid.even{ grid-template-columns:1fr 1fr; }
+  @media (max-width: 900px){
+    .chart-grid, .chart-grid.even{ grid-template-columns:1fr; }
   }
 
-  /* ---------- Header ---------- */
-  header.topbar{
-    background:var(--header-bg);
-    color:#F2F1E6;
-    padding:20px clamp(16px,4vw,44px) 16px;
-    border-bottom:3px solid var(--lime);
+  /* ---- tables ---- */
+  .tbl-scroll{ overflow-x:auto; }
+  th{ text-align:left; padding:8px 10px; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--grey); border-bottom:2px solid var(--ink); white-space:nowrap; }
+  th.r, td.r{ text-align:right; }
+  td{ padding:7px 10px; font-size:12.5px; border-bottom:1px solid #e6e6e6; white-space:nowrap; }
+  td.name{ white-space:normal; min-width:150px; }
+  .badge{ font-size:10px; padding:2px 9px; border-radius:10px; background:#e4f0b0; color:var(--olive-dark); font-weight:600; letter-spacing:.02em; }
+  .rank{ font-family:'Courier New',monospace; color:var(--olive-dark); }
+
+  .filter-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
+  .filter-row .flabel{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--grey); margin-right:2px; }
+  .filter-row .btnrow{ display:flex; flex-wrap:wrap; gap:8px; }
+  select.btn{
+    appearance:none; -webkit-appearance:none; padding-right:30px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'><path d='M1 3 L5 7 L9 3' stroke='%235c8000' stroke-width='1.6' fill='none'/></svg>");
+    background-repeat:no-repeat; background-position:right 10px center;
   }
-  .brand-row{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; }
-  .brand-eyebrow{
-    font-family:'IBM Plex Mono', monospace;
-    font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--sage); margin:0 0 8px; font-weight:600;
+  select.btn:focus{ outline:2px solid var(--olive); outline-offset:1px; }
+  .filters-block{ margin-bottom:16px; }
+
+  .search-box{
+    display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line);
+    border-radius:3px; padding:8px 12px; margin-bottom:12px; max-width:320px;
   }
-  .brand-title{
-    font-family:'Fraunces', serif;
-    font-weight:700;
-    font-size:clamp(21px,3vw,29px);
-    line-height:1.05;
-    margin:0;
-    color:#fff;
+  .search-box input{ all:unset; flex:1; font-size:13px; font-family:inherit; color:var(--ink); }
+  .search-box svg{ flex-shrink:0; opacity:.5; }
+
+  .subsection-label{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--olive-dark); margin:24px 0 10px; padding-top:14px; border-top:1px solid var(--line); }
+  .subsection-label:first-of-type{ border-top:none; padding-top:0; }
+
+  .foot{ text-align:center; font-size:11px; color:var(--grey-soft); margin-top:34px; }
+
+  #chart-tooltip{
+    position:fixed; pointer-events:none; z-index:999; background:#ffffff; border:1px solid var(--line);
+    border-radius:3px; padding:7px 10px; font-size:11.5px; font-family:'Georgia',serif; color:var(--ink);
+    box-shadow:0 2px 8px rgba(0,0,0,.12); display:none; max-width:220px; line-height:1.5;
   }
-  .brand-sub{
-    margin:6px 0 0;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px;
-    letter-spacing:.02em;
-    color:var(--sage);
-  }
-  .sync-box{ text-align:right; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--sage); min-width:170px; }
-  .sync-status{ display:flex; align-items:center; gap:6px; justify-content:flex-end; margin-bottom:6px; }
-  .dot{width:6px;height:6px;border-radius:50%; background:var(--lime);}
-  .dot.err{background:#E08A6B;}
-  .refresh-btn{
-    background:transparent; border:1px solid rgba(215,227,106,0.5); color:#F2F1E6;
-    font-family:'IBM Plex Mono', monospace; font-size:10.5px; padding:5px 10px; border-radius:3px; cursor:pointer;
-  }
-  .refresh-btn:hover{ background:rgba(215,227,106,0.12); }
+  #chart-tooltip .tt-title{ font-weight:700; margin-bottom:2px; }
+  #chart-tooltip .tt-row{ display:flex; align-items:center; gap:6px; }
+  #chart-tooltip .tt-swatch{ width:8px; height:8px; border-radius:2px; flex-shrink:0; }
 
-  nav.tabs{ display:flex; gap:2px; padding:0 clamp(16px,4vw,44px); background:var(--olive-dark); overflow-x:auto; }
-  nav.tabs button{
-    appearance:none; border:none; background:transparent; color:#D9DEC0;
-    font-family:'IBM Plex Sans', sans-serif; font-weight:600; font-size:13px;
-    padding:11px 16px 9px; cursor:pointer; border-bottom:2.5px solid transparent; white-space:nowrap;
-  }
-  nav.tabs button:hover{ color:#fff; }
-  nav.tabs button.active{ color:#fff; border-bottom-color:var(--lime); }
-
-  main{ padding:22px clamp(16px,4vw,44px) 56px; max-width:1360px; margin:0 auto; }
-  .view{ display:none; } .view.active{ display:block; }
-
-  .view-head h2{ font-family:'Fraunces', serif; font-weight:700; font-size:20px; margin:0 0 3px; color:var(--ink); }
-  .view-head p{ margin:0; color:var(--ink-soft); font-size:13px; max-width:640px; }
-
-  /* ---------- Button filters ---------- */
-  .filter-row{ margin:16px 0 4px; }
-  .filter-row .flabel{
-    font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:700;
-    letter-spacing:.06em; color:var(--ink); text-transform:uppercase;
-    display:inline-block; width:90px; vertical-align:middle;
-  }
-  .btn-group{ display:inline-flex; flex-wrap:wrap; gap:6px; vertical-align:middle; }
-  .pill-btn{
-    appearance:none; cursor:pointer; font-family:'IBM Plex Sans', sans-serif; font-weight:600;
-    font-size:12px; padding:5px 12px; border-radius:4px; border:1.4px solid var(--olive);
-    background:#fff; color:var(--olive); transition:all .12s ease;
-  }
-  .pill-btn:hover{ background:var(--olive-light); }
-  .pill-btn.active{ background:var(--olive); color:#fff; border-color:var(--olive); }
-  .filter-block{ margin-bottom:8px; display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
-
-  .select-plain{
-    font-family:'IBM Plex Sans', sans-serif; font-size:12.5px; padding:6px 10px;
-    border:1.4px solid var(--olive); border-radius:4px; background:#fff; color:var(--olive); font-weight:600;
-    min-width:170px;
-  }
-
-  /* ---------- KPI cards ---------- */
-  .kpi-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; margin:18px 0 20px; }
-  .kpi-card{ background:var(--card); border:1px solid var(--border); border-radius:5px; padding:14px 16px; }
-  .kpi-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:0 0 7px; font-weight:600; }
-  .kpi-value{ font-family:'Fraunces', serif; font-weight:700; font-size:23px; margin:0; color:var(--ink); line-height:1.1; }
-  .kpi-delta{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; margin-top:6px; display:inline-block; }
-  .kpi-delta.up{ color:var(--up); } .kpi-delta.down{ color:var(--down); } .kpi-delta.flat{ color:var(--ink-soft); }
-
-  /* ---------- Panels ---------- */
-  .panel-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:14px; margin-bottom:14px; }
-  .panel-grid.two-even{ grid-template-columns:1fr 1fr; }
-  @media (max-width:900px){ .panel-grid, .panel-grid.two-even{ grid-template-columns:1fr; } }
-  .panel{ background:var(--card); border:1px solid var(--border); border-radius:5px; padding:16px 18px 12px; }
-  .panel h3{ font-family:'IBM Plex Sans', sans-serif; font-size:13px; font-weight:700; margin:0 0 2px; color:var(--ink); }
-  .panel .panel-sub{ font-size:11px; color:var(--ink-soft); margin:0 0 10px; font-style:italic; }
-  .chart-wrap{ position:relative; height:260px; }
-  .chart-wrap.tall{ height:320px; }
-
-  /* ---------- Tables ---------- */
-  table.data-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  table.data-table th{
-    text-align:right; font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase;
-    letter-spacing:.04em; color:var(--ink-soft); border-bottom:1.5px solid var(--ink); padding:0 7px 7px; font-weight:600;
-  }
-  table.data-table th:first-child, table.data-table td:first-child{ text-align:left; }
-  table.data-table td{ padding:7px 7px; border-bottom:1px solid var(--border); text-align:right; font-family:'IBM Plex Mono', monospace; font-size:12px; }
-  table.data-table td:first-child{ font-family:'IBM Plex Sans', sans-serif; font-size:12px; }
-  table.data-table tbody tr:hover{ background:var(--olive-light); }
-  .table-wrap{ max-height:420px; overflow:auto; }
-  .table-wrap.short{ max-height:280px; }
-
-  .cat-section-title{
-    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:700; letter-spacing:.06em;
-    text-transform:uppercase; margin:22px 0 8px; padding-bottom:5px; border-bottom:1px solid var(--border);
-  }
-
-  .link-color{ color:var(--olive); font-weight:600; }
-  .badge{ display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:9.5px; padding:2px 7px; border-radius:20px; background:var(--olive-light); color:var(--olive-dark); font-weight:600; }
-
-  .full{ grid-column:1 / -1; }
-
-  .loading-banner, .error-banner{ max-width:1360px; margin:14px auto 0; padding:12px 16px; border-radius:5px; font-size:13px; display:flex; align-items:center; gap:9px; }
-  .loading-banner{ background:#EDEEE3; color:var(--ink-soft); }
-  .error-banner{ background:#FBEAEA; color:#7A2626; border:1px solid #EFC6C6; margin-left:clamp(16px,4vw,44px); margin-right:clamp(16px,4vw,44px);}
-  .spinner{ width:13px;height:13px;border-radius:50%; border:2px solid #C7CBB5; border-top-color:var(--olive); animation:spin .7s linear infinite; }
+  .loading-banner, .error-banner{ max-width:1200px; margin:14px auto 0; padding:12px 16px; border-radius:4px; font-size:13px; display:flex; align-items:center; gap:9px; }
+  .loading-banner{ background:#e8e8e8; color:var(--grey); }
+  .error-banner{ background:#fbeaea; color:#7a2626; border:1px solid #efc6c6; margin-left:20px; margin-right:20px; }
+  .spinner{ width:13px;height:13px;border-radius:50%; border:2px solid #ccc; border-top-color:var(--olive-dark); animation:spin .7s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
-  footer{ text-align:center; padding:22px 16px 36px; color:var(--ink-soft); font-size:11px; font-family:'IBM Plex Mono', monospace; }
-  ::-webkit-scrollbar{ height:8px; width:8px; }
-  ::-webkit-scrollbar-thumb{ background:#C9CBB4; border-radius:4px; }
+  @media (max-width: 640px){
+    .hdr h1{ font-size:20px; }
+    .kpi .val{ font-size:18px; }
+    .card-pad{ padding:15px 15px 6px; }
+    .wrap{ padding:16px 14px 50px; }
+    .chart-h, .chart-h.tall{ height:240px; }
+    .tier{ scroll-margin-top:56px; }
+  }
 </style>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="brand-row">
-    <div>
-      <p class="brand-eyebrow">M. Montesclaros Farms Inc. — Sayre Highway, Hagkol</p>
-      <h1 class="brand-title">Year-over-Year Sales Analysis</h1>
-      <p class="brand-sub" id="breadcrumb">Overview · Main Products · MCP &amp; By-Products · Customers</p>
-    </div>
-    <div class="sync-box">
-      <div class="sync-status"><span class="dot" id="syncDot"></span><span id="syncText">Connecting to sheet…</span></div>
-      <button class="refresh-btn" id="refreshBtn">↻ Refresh data</button>
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="eyebrow">M. Montesclaros Farms Inc. — Sayre Highway, Hagkol</div>
+    <h1>Year-over-Year Sales Analysis</h1>
+    <div class="sub" id="hdr-sub">Overview · Main Products · MCP &amp; By-Products · Customers</div>
+    <div class="sync">
+      <span class="sdot" id="syncDot"></span><span id="syncText">Connecting to sheet…</span>
+      <button id="refreshBtn">↻ Refresh data</button>
     </div>
   </div>
 </header>
 
-<nav class="tabs">
-  <button data-view="overview" class="active">1. Overview</button>
-  <button data-view="mainproducts">2. Main Products</button>
-  <button data-view="mcp">3. MCP &amp; By-Products</button>
-  <button data-view="customers">4. Customers</button>
-</nav>
+<div class="qnav-wrap">
+  <nav class="qnav">
+    <button class="btn active" data-tier="t1">1. Overview</button>
+    <button class="btn" data-tier="t2">2. Main Products</button>
+    <button class="btn" data-tier="t3">3. MCP &amp; By-Products</button>
+    <button class="btn" data-tier="t4">4. Customers</button>
+  </nav>
+</div>
 
 <div id="loadingBanner" class="loading-banner"><span class="spinner"></span> Pulling live data from the Google Sheet…</div>
 <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
-<main id="app" style="display:none;">
+<div class="wrap" id="app" style="display:none;">
 
-  <!-- ============ OVERVIEW ============ -->
-  <section class="view active" id="view-overview">
-    <div class="view-head">
-      <h2>1. Overall Summary</h2>
-      <p>Total revenue across every product line, company-wide.</p>
+  <!-- TIER 1 -->
+  <section class="tier active" id="t1">
+    <div class="section-title">1. Overall Summary</div>
+    <div class="section-sub">Total revenue across every product line, company-wide</div>
+
+    <div class="filters-block">
+      <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="t1-year-pills"></div></div>
+      <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="t1-product-pills"></div></div>
     </div>
 
-    <div class="filter-row">
-      <div class="filter-block"><span class="flabel">Year:</span><div class="btn-group" id="ov-year"></div></div>
-      <div class="filter-block"><span class="flabel">Product:</span><div class="btn-group" id="ov-category"></div></div>
-    </div>
+    <div class="kpi-grid" id="p1-kpis"></div>
 
-    <div class="kpi-row" id="ov-kpis"></div>
-
-    <div class="panel-grid">
-      <div class="panel">
-        <h3>Total sales by year</h3>
-        <p class="panel-sub">Stacked by product line, in PHP</p>
-        <div class="chart-wrap tall"><canvas id="ov-stacked"></canvas></div>
+    <div class="chart-grid even">
+      <div class="card card-pad">
+        <div class="card-title" id="t1-chart1-title">Total sales by year</div>
+        <div class="card-cap" id="t1-chart1-cap">Stacked by product line, in PHP</div>
+        <div class="chart-h tall" id="chart-overall-stack"></div>
       </div>
-      <div class="panel">
-        <h3>Year-over-year growth</h3>
-        <p class="panel-sub">% change in total sales value</p>
-        <div class="chart-wrap tall"><canvas id="ov-growth"></canvas></div>
+      <div class="card card-pad">
+        <div class="card-title" id="t1-chart2-title">Year‑over‑year growth</div>
+        <div class="card-cap" id="t1-chart2-cap">% change in total sales value</div>
+        <div class="chart-h tall" id="chart-yoy-growth"></div>
       </div>
     </div>
 
-    <div class="panel full">
-      <h3>Yearly summary table</h3>
-      <p class="panel-sub">Total sales value per product line, per year</p>
-      <div class="table-wrap short"><table class="data-table" id="ov-table"></table></div>
+    <div class="card card-pad">
+      <div class="card-title">Yearly summary table</div>
+      <div class="card-cap">Sales value per product line, per year</div>
+      <div class="tbl-scroll"><table id="p1-table"></table></div>
     </div>
   </section>
 
-  <!-- ============ MAIN PRODUCTS ============ -->
-  <section class="view" id="view-mainproducts">
-    <div class="view-head">
-      <h2>2. Main Products</h2>
-      <p>Live Market Hogs, Live Cattle, and Hatching Eggs A — the company's core revenue lines.</p>
+  <!-- TIER 2 -->
+  <section class="tier" id="t2">
+    <div class="section-title">2. Main Products</div>
+    <div class="section-sub" id="t2-sub">The company's core revenue lines</div>
+
+    <div class="filters-block">
+      <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
+      <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
     </div>
 
-    <div class="filter-row">
-      <div class="filter-block"><span class="flabel">Product:</span><div class="btn-group" id="mp-product"></div></div>
-      <div class="filter-block"><span class="flabel">Focus Year:</span><div class="btn-group" id="mp-focusyear"></div></div>
-    </div>
+    <div class="kpi-grid" id="p2-kpis"></div>
 
-    <div class="kpi-row" id="mp-kpis"></div>
-
-    <div class="panel-grid two-even">
-      <div class="panel">
-        <h3>Annual sales value</h3>
-        <p class="panel-sub">Total PHP per year — focus year bold</p>
-        <div class="chart-wrap"><canvas id="mp-value"></canvas></div>
+    <div class="chart-grid even">
+      <div class="card card-pad">
+        <div class="card-title">Annual sales value</div>
+        <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
+        <div class="chart-h tall" id="chart-product-annual"></div>
       </div>
-      <div class="panel">
-        <h3 id="mp-qty-title">Annual quantity</h3>
-        <p class="panel-sub">Units sold per year — focus year bold</p>
-        <div class="chart-wrap"><canvas id="mp-qty"></canvas></div>
+      <div class="card card-pad">
+        <div class="card-title" id="p2-qty-title">Annual quantity</div>
+        <div class="card-cap" id="p2-qty-cap">Units per year</div>
+        <div class="chart-h tall" id="chart-product-qty"></div>
       </div>
     </div>
 
-    <div class="panel-grid two-even">
-      <div class="panel">
-        <h3>Average unit rate</h3>
-        <p class="panel-sub">PHP per unit, by year — focus year bold</p>
-        <div class="chart-wrap"><canvas id="mp-rate"></canvas></div>
+    <div class="chart-grid even">
+      <div class="card card-pad">
+        <div class="card-title">Average unit rate</div>
+        <div class="card-cap" id="p2-rate-cap">PHP per unit, by year</div>
+        <div class="chart-h tall" id="chart-product-rate"></div>
       </div>
-      <div class="panel">
-        <h3>Year-by-year detail</h3>
-        <p class="panel-sub">Qty, amount, and unit rate (no monthly breakdown in source data)</p>
-        <div class="table-wrap short"><table class="data-table" id="mp-table"></table></div>
+      <div class="card card-pad">
+        <div class="card-title">Year-by-year detail</div>
+        <div class="card-cap">No monthly breakdown in source data</div>
+        <div class="tbl-scroll"><table id="p2-table"></table></div>
       </div>
     </div>
   </section>
 
-  <!-- ============ MCP & BY-PRODUCTS ============ -->
-  <section class="view" id="view-mcp">
-    <div class="view-head">
-      <h2>3. MCP &amp; By-Products</h2>
-      <p>Meat-cut processing, swine and poultry by-products, partner-farm volumes, and miscellaneous sales lines.</p>
+  <!-- TIER 3 -->
+  <section class="tier" id="t3">
+    <div class="section-title">3. MCP &amp; By-Products</div>
+    <div class="section-sub">Meat-cut processing, swine and poultry by-products, partner-farm volumes, and miscellaneous sales lines</div>
+
+    <div class="filters-block">
+      <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p3-year-pills"></div></div>
+      <div class="filter-row"><span class="flabel">Category:</span><div class="btnrow" id="p3-cat-pills"></div></div>
     </div>
 
-    <div class="filter-row">
-      <div class="filter-block"><span class="flabel">Year:</span><div class="btn-group" id="mcp-year"></div></div>
-      <div class="filter-block"><span class="flabel">Category:</span><div class="btn-group" id="mcp-category"></div></div>
-    </div>
+    <div class="kpi-grid" id="p3-kpis"></div>
 
-    <div class="kpi-row" id="mcp-kpis"></div>
-
-    <div class="panel-grid">
-      <div class="panel">
-        <h3>Sales by category</h3>
-        <p class="panel-sub">Total PHP per year, by group</p>
-        <div class="chart-wrap tall"><canvas id="mcp-bycat"></canvas></div>
+    <div class="chart-grid even">
+      <div class="card card-pad">
+        <div class="card-title" id="p3-chart1-title">Sales by category</div>
+        <div class="card-cap" id="p3-chart1-cap">Total PHP per year, by group</div>
+        <div class="chart-h tall" id="chart-mcp-groups"></div>
       </div>
-      <div class="panel">
-        <h3>Top contributing line items</h3>
-        <p class="panel-sub">Ranked by total sales value in selection</p>
-        <div class="chart-wrap tall"><canvas id="mcp-topitems"></canvas></div>
+      <div class="card card-pad">
+        <div class="card-title" id="p3-chart2-title">Top contributing line items</div>
+        <div class="card-cap" id="p3-chart2-cap">Ranked by total sales value</div>
+        <div class="chart-h tall" id="chart-mcp-top"></div>
       </div>
     </div>
 
-    <div id="mcp-cat-tables"></div>
+    <div id="p3-groups"></div>
   </section>
 
-  <!-- ============ CUSTOMERS ============ -->
-  <section class="view" id="view-customers">
-    <div class="view-head">
-      <h2>4. Customers</h2>
-      <p>Account-level performance from the YOY Sales-Customers ledger — concentration, growth, and product mix per buyer.</p>
+  <!-- TIER 4 -->
+  <section class="tier" id="t4">
+    <div class="section-title">4. Customers</div>
+    <div class="section-sub">Account-level performance from the YOY Sales-Customers ledger — concentration, growth, and product mix per buyer</div>
+
+    <div class="filters-block">
+      <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p4-year-pills"></div></div>
+      <div class="filter-row"><span class="flabel">Product:</span><select class="btn" id="p4-product-select"></select></div>
     </div>
 
-    <div class="filter-row">
-      <div class="filter-block"><span class="flabel">Year:</span><div class="btn-group" id="cust-year"></div></div>
-      <div class="filter-block"><span class="flabel">Product:</span><select class="select-plain" id="cust-product"></select></div>
-    </div>
+    <div class="kpi-grid" id="p4-kpis"></div>
 
-    <div class="kpi-row" id="cust-kpis"></div>
-
-    <div class="panel-grid">
-      <div class="panel">
-        <h3>Top 12 customers</h3>
-        <p class="panel-sub">By total sales value, in selection</p>
-        <div class="chart-wrap tall"><canvas id="cust-top12"></canvas></div>
+    <div class="chart-grid even">
+      <div class="card card-pad">
+        <div class="card-title" id="p4-chart1-title">Top 12 customers</div>
+        <div class="card-cap" id="p4-chart1-cap">By total sales value</div>
+        <div class="chart-h tall" id="chart-cust-top"></div>
       </div>
-      <div class="panel">
-        <h3>Top products across customers</h3>
-        <p class="panel-sub">By total sales value, in selection</p>
-        <div class="chart-wrap tall"><canvas id="cust-topproducts"></canvas></div>
+      <div class="card card-pad">
+        <div class="card-title" id="p4-chart2-title">Top products across customers</div>
+        <div class="card-cap" id="p4-chart2-cap">By total sales value</div>
+        <div class="chart-h tall" id="chart-cust-products"></div>
       </div>
     </div>
 
-    <div class="panel full">
-      <h3>All customers</h3>
-      <p class="panel-sub">Search, and browse per-year sales &amp; top product</p>
-      <div class="filter-block" style="margin:0 0 12px;">
-        <input type="text" id="cust-search" class="select-plain" style="min-width:260px;" placeholder="Search customer name…">
+    <div class="card card-pad">
+      <div class="card-title">All customers</div>
+      <div class="card-cap">Search, and browse per‑year sales &amp; top product</div>
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="cust-search" placeholder="Search customer name…">
       </div>
-      <div class="table-wrap"><table class="data-table" id="cust-table"></table></div>
+      <div class="tbl-scroll"><table id="p4-table"></table></div>
     </div>
   </section>
 
-</main>
+  <div class="foot">Source: UPGRADED YOY / YOY SALES‑CUSTOMERS workbook — M. Montesclaros Farms Inc. · Data refreshes live from Google Sheets.</div>
+</div>
 
-<footer>Source: UPGRADED YOY / YOY SALES-CUSTOMERS workbook — M. Montesclaros Farms Inc. · Data refreshes live from Google Sheets.</footer>
+<div id="chart-tooltip"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
+function ensurePapa(){
+  return new Promise((resolve,reject)=>{
+    if(window.Papa){ resolve(); return; }
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js';
+    s.onload=()=>resolve();
+    s.onerror=()=>reject(new Error('Could not load CSV parser library from any source'));
+    document.head.appendChild(s);
+  });
+}
+
+/* ---------------- formatters ---------------- */
+const PHP = (n, opts={}) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  if (opts.compact){
+    if (abs >= 1e9) return '₱' + (n/1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return '₱' + (n/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return '₱' + (n/1e3).toFixed(0) + 'K';
+    return '₱' + n.toFixed(0);
+  }
+  return '₱' + n.toLocaleString('en-PH', {maximumFractionDigits:0});
+};
+const NUM = (n, opts={}) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  if (opts.compact){
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return (n/1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (abs >= 1e3) return (n/1e3).toFixed(0) + 'K';
+    return n.toFixed(0);
+  }
+  return n.toLocaleString('en-PH', {maximumFractionDigits:0});
+};
+const PCT = (n) => n === null || n === undefined || isNaN(n) ? '—' : (n>0?'+':'') + n.toFixed(1) + '%';
+function titleCase(s){ return (s||"").toLowerCase().replace(/\b\w/g, c=>c.toUpperCase()); }
+
+/* ---- MMFI design-system palette ---- */
+const C = {
+  ink:'#0d0d0d', inkSoft:'#333333', grey:'#666666', greySoft:'#999999',
+  line:'#dcdcdc', olive:'#8DB600', oliveDark:'#5c8000', oliveDeep:'#4a6600',
+  hoverTan:'#f3e7d8', gridLine:'#e9e9e9', rust:'#8a3b2b'
+};
+const CAT_PALETTE = ['#5c8000','#333333','#8DB600','#999999','#4d4d4d','#1a1a1a','#a8cc00','#c2c2c2','#4a6600','#666666'];
+const YEAR_PALETTE = ['#999999','#333333','#8DB600','#5c8000','#8a3b2b','#a8cc00'];
+
+/* =====================================================================
+   SVG CHART TOOLKIT — zero external dependencies
+   ===================================================================== */
+const SVGNS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, text){
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs||{}) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+const tooltipEl = document.getElementById('chart-tooltip');
+function showTip(evt, html){ tooltipEl.innerHTML = html; tooltipEl.style.display = 'block'; positionTip(evt); }
+function positionTip(evt){
+  const pad = 14;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const tw = tooltipEl.offsetWidth || 160, th = tooltipEl.offsetHeight || 40;
+  if (x + tw > window.innerWidth - 8) x = evt.clientX - tw - pad;
+  if (y + th > window.innerHeight - 8) y = evt.clientY - th - pad;
+  tooltipEl.style.left = x + 'px'; tooltipEl.style.top = y + 'px';
+}
+function hideTip(){ tooltipEl.style.display = 'none'; }
+
+function niceStep(maxVal){
+  if (!maxVal || maxVal <= 0) return {niceMax:1, step:0.25};
+  const rough = maxVal / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  let step;
+  if (norm < 1.5) step = 1*mag; else if (norm < 3) step = 2*mag; else if (norm < 7) step = 5*mag; else step = 10*mag;
+  const niceMax = Math.ceil(maxVal / step) * step;
+  return {niceMax, step};
+}
+function initSvg(containerId){
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const rect = container.getBoundingClientRect();
+  const W = Math.max(Math.round(rect.width), 100);
+  const H = Math.max(Math.round(rect.height), 100);
+  const svg = el('svg', {width:W, height:H, viewBox:`0 0 ${W} ${H}`});
+  container.appendChild(svg);
+  return {container, svg, W, H};
+}
+const CHART_REGISTRY = [];
+function registerChart(fn){ CHART_REGISTRY.push(fn); }
+
+function makePills(containerId, items, activeValue, onSelect){
+  const container = document.getElementById(containerId);
+  container.innerHTML = items.map(it=>`<button class="btn ${it.value===activeValue?'active':''}" data-v="${it.value}">${it.label}</button>`).join('');
+  container.querySelectorAll('.btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      container.querySelectorAll('.btn').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      onSelect(btn.dataset.v);
+    });
+  });
+}
+function makeSelect(containerId, items, activeValue, onSelect){
+  const sel = document.getElementById(containerId);
+  sel.innerHTML = items.map(it=>`<option value="${it.value}" ${it.value===activeValue?'selected':''}>${it.label}</option>`).join('');
+  sel.onchange = ()=> onSelect(sel.value);
+}
+
+function drawBarChart(containerId, {labels, series, valueFmt, legend=true, highlightIndex=null}){
+  const {svg, W, H} = initSvg(containerId);
+  const isNarrow = W < 380;
+  const leftPad = 46, rightPad = 10, topPad = 12;
+  const legendH = legend && series.length > 1 ? (isNarrow ? 34 : 22) : 0;
+  const bottomPad = 24 + legendH;
+  const plotW = W - leftPad - rightPad, plotH = H - topPad - bottomPad;
+  if (plotW <= 0 || plotH <= 0) return;
+  const sums = labels.map((_, i) => series.reduce((s, ser) => s + (ser.data[i]||0), 0));
+  const maxVal = Math.max(...sums, 0);
+  const {niceMax, step} = niceStep(maxVal);
+  const steps = Math.max(1, Math.round(niceMax/step));
+  for (let i=0; i<=steps; i++){
+    const v = i*step;
+    const y = topPad + plotH - (v/niceMax)*plotH;
+    svg.appendChild(el('line', {x1:leftPad, x2:leftPad+plotW, y1:y, y2:y, stroke:C.gridLine, 'stroke-width':1}));
+    svg.appendChild(el('text', {x:leftPad-6, y:y+3, 'text-anchor':'end', 'font-size':9.5, fill:C.grey}, valueFmt(v)));
+  }
+  svg.appendChild(el('line', {x1:leftPad, x2:leftPad, y1:topPad, y2:topPad+plotH, stroke:C.line, 'stroke-width':1}));
+  const n = labels.length, bandW = plotW / n, barW = Math.min(bandW * 0.56, 52);
+  labels.forEach((lab, i) => {
+    const cx = leftPad + bandW*i + bandW/2;
+    const dim = highlightIndex !== null && highlightIndex !== i;
+    let yCum = topPad + plotH;
+    series.forEach(ser => {
+      const v = ser.data[i] || 0;
+      if (v <= 0) return;
+      const segH = (v/niceMax)*plotH;
+      const y = yCum - segH;
+      const rect = el('rect', {x:cx-barW/2, y, width:barW, height:Math.max(segH,0.5), fill:ser.color, rx:2, opacity: dim?0.35:1});
+      rect.addEventListener('mousemove', (e)=>{ showTip(e, `<div class="tt-title">${lab}</div><div class="tt-row"><span class="tt-swatch" style="background:${ser.color}"></span>${ser.label}: <strong>${valueFmt(v,true)}</strong></div>`); });
+      rect.addEventListener('mouseleave', hideTip);
+      svg.appendChild(rect);
+      yCum -= segH;
+    });
+    svg.appendChild(el('text', {x:cx, y:topPad+plotH+16, 'text-anchor':'middle', 'font-size':10.5, fill: highlightIndex===i?C.ink:C.grey, 'font-weight': highlightIndex===i?'700':'400'}, lab));
+  });
+  if (legend && series.length > 1){
+    const legY = topPad + plotH + 34;
+    const items = [];
+    series.forEach(ser=>{ const label = isNarrow && ser.label.length > 16 ? ser.label.slice(0,14)+'…' : ser.label; items.push({label, color:ser.color, w: 14 + label.length*5.6 + 14}); });
+    let rowY = legY, rowX = leftPad; const maxX = leftPad + plotW;
+    items.forEach(it=>{
+      if (rowX + it.w > maxX + 4){ rowX = leftPad; rowY += 16; }
+      svg.appendChild(el('rect', {x:rowX, y:rowY-8, width:9, height:9, rx:2, fill:it.color}));
+      svg.appendChild(el('text', {x:rowX+14, y:rowY, 'font-size':10.5, fill:C.grey}, it.label));
+      rowX += it.w;
+    });
+  }
+}
+
+function drawLineChart(containerId, {labels, series, valueFmt, area=false, legend=true, highlightIndex=null}){
+  const {svg, W, H} = initSvg(containerId);
+  const isNarrow = W < 380;
+  const leftPad = 48, rightPad = 12, topPad = 14;
+  const legendH = legend && series.length > 1 ? (isNarrow ? 34 : 22) : 0;
+  const bottomPad = 24 + legendH;
+  const plotW = W - leftPad - rightPad, plotH = H - topPad - bottomPad;
+  if (plotW <= 0 || plotH <= 0) return;
+  const allVals = series.flatMap(s => s.data.filter(v => v !== null && v !== undefined));
+  let minVal = Math.min(0, ...allVals), maxVal = Math.max(...allVals, 0);
+  if (minVal === maxVal){ maxVal = minVal + 1; }
+  const {niceMax} = niceStep(maxVal);
+  const niceMin = minVal < 0 ? -niceStep(-minVal).niceMax : 0;
+  const range = niceMax - niceMin || 1;
+  const steps = 4;
+  for (let i=0; i<=steps; i++){
+    const v = niceMin + (range*i/steps);
+    const y = topPad + plotH - ((v-niceMin)/range)*plotH;
+    svg.appendChild(el('line', {x1:leftPad, x2:leftPad+plotW, y1:y, y2:y, stroke:C.gridLine, 'stroke-width':1}));
+    svg.appendChild(el('text', {x:leftPad-6, y:y+3, 'text-anchor':'end', 'font-size':9.5, fill:C.grey}, valueFmt(v)));
+  }
+  svg.appendChild(el('line', {x1:leftPad, x2:leftPad, y1:topPad, y2:topPad+plotH, stroke:C.line, 'stroke-width':1}));
+  if (niceMin < 0){ const zy = topPad + plotH - ((0-niceMin)/range)*plotH; svg.appendChild(el('line', {x1:leftPad, x2:leftPad+plotW, y1:zy, y2:zy, stroke:C.line, 'stroke-width':1})); }
+  const n = labels.length, stepX = n > 1 ? plotW/(n-1) : 0;
+  const xAt = i => leftPad + stepX*i, yAt = v => topPad + plotH - ((v-niceMin)/range)*plotH;
+  if (highlightIndex !== null){ svg.appendChild(el('line', {x1:xAt(highlightIndex), x2:xAt(highlightIndex), y1:topPad, y2:topPad+plotH, stroke:C.olive, 'stroke-width':1.5, 'stroke-dasharray':'3,3', opacity:0.55})); }
+  const labelEvery = isNarrow ? Math.ceil(n/6) : Math.ceil(n/12);
+  labels.forEach((lab,i)=>{
+    if (i % labelEvery !== 0 && i !== n-1) return;
+    svg.appendChild(el('text', {x:xAt(i), y:topPad+plotH+16, 'text-anchor':'middle', 'font-size':9.5, fill: highlightIndex===i?C.ink:C.grey, 'font-weight': highlightIndex===i?'700':'400'}, lab));
+  });
+  series.forEach(ser=>{
+    const opacity = ser.opacity !== undefined ? ser.opacity : 1;
+    const pts = ser.data.map((v,i)=> v===null||v===undefined ? null : [xAt(i), yAt(v)]);
+    const validSegs = []; let seg = [];
+    pts.forEach(p=>{ if(p){ seg.push(p); } else if(seg.length){ validSegs.push(seg); seg=[]; } });
+    if (seg.length) validSegs.push(seg);
+    validSegs.forEach(segPts=>{
+      if (area && segPts.length>1){
+        const baseY = yAt(Math.max(niceMin,0));
+        let d = `M ${segPts[0][0]} ${baseY} `;
+        segPts.forEach(p=> d += `L ${p[0]} ${p[1]} `);
+        d += `L ${segPts[segPts.length-1][0]} ${baseY} Z`;
+        svg.appendChild(el('path', {d, fill:ser.color, opacity:0.13*opacity}));
+      }
+      let d = ''; segPts.forEach((p,i)=> d += (i===0?'M':'L') + ` ${p[0]} ${p[1]} `);
+      svg.appendChild(el('path', {d, fill:'none', stroke:ser.color, 'stroke-width':ser.bold?3:1.75, 'stroke-linejoin':'round', 'stroke-linecap':'round', opacity}));
+    });
+    ser.data.forEach((v,i)=>{
+      if (v===null||v===undefined) return;
+      const r = ser.showPoints===false ? (ser.bold?2.5:0) : (ser.bold?3.5:2);
+      if (r<=0) return;
+      const c = el('circle', {cx:xAt(i), cy:yAt(v), r, fill:ser.color, stroke:'#fff', 'stroke-width':1, opacity});
+      c.addEventListener('mousemove', (e)=>{ showTip(e, `<div class="tt-title">${labels[i]}</div><div class="tt-row"><span class="tt-swatch" style="background:${ser.color}"></span>${ser.label}: <strong>${valueFmt(v,true)}</strong></div>`); });
+      c.addEventListener('mouseleave', hideTip);
+      svg.appendChild(c);
+    });
+  });
+  if (legend && series.length > 1){
+    const legY = topPad + plotH + 34;
+    let rowY = legY, rowX = leftPad; const maxX = leftPad + plotW;
+    series.forEach(ser=>{
+      const label = isNarrow && ser.label.length > 12 ? ser.label.slice(0,10)+'…' : ser.label;
+      const w = 22 + label.length*5.6 + 10;
+      if (rowX + w > maxX + 4){ rowX = leftPad; rowY += 16; }
+      svg.appendChild(el('line', {x1:rowX, x2:rowX+14, y1:rowY-3, y2:rowY-3, stroke:ser.color, 'stroke-width':ser.bold?3:1.75, opacity: ser.opacity!==undefined?ser.opacity:1}));
+      svg.appendChild(el('text', {x:rowX+19, y:rowY, 'font-size':10.5, fill:C.grey}, label));
+      rowX += w;
+    });
+  }
+}
+
+function drawHBarChart(containerId, {labels, values, color, valueFmt}){
+  const {svg, W, H} = initSvg(containerId);
+  const isNarrow = W < 380;
+  const leftPad = Math.max(85, Math.min(W*0.42, isNarrow ? 132 : 190));
+  const rightPad = 10, topPad = 8, bottomPad = 8;
+  const plotW = W - leftPad - rightPad, plotH = H - topPad - bottomPad;
+  if (plotW <= 0 || plotH <= 0) return;
+  if (!labels.length){ svg.appendChild(el('text', {x:W/2, y:H/2, 'text-anchor':'middle', 'font-size':12, fill:C.greySoft}, 'No data for this selection')); return; }
+  const maxVal = Math.max(...values, 1);
+  const n = labels.length, rowH = plotH / n, barH = Math.min(rowH*0.62, 26);
+  const charW = 5.9, maxChars = Math.max(9, Math.floor((leftPad - 14) / charW));
+  labels.forEach((lab,i)=>{
+    const cy = topPad + rowH*i + rowH/2, v = values[i], barLen = (v/maxVal) * plotW;
+    const lbl = lab.length > maxChars ? lab.slice(0, maxChars-1)+'…' : lab;
+    const textEl = el('text', {x:leftPad-8, y:cy+3.5, 'text-anchor':'end', 'font-size':10, fill:C.ink}, lbl);
+    if (lbl !== lab){ const titleEl = document.createElementNS(SVGNS, 'title'); titleEl.textContent = lab; textEl.appendChild(titleEl); }
+    svg.appendChild(textEl);
+    const rect = el('rect', {x:leftPad, y:cy-barH/2, width:Math.max(barLen,1), height:barH, fill:color, rx:2});
+    rect.addEventListener('mousemove', (e)=>{ showTip(e, `<div class="tt-title">${lab}</div><div>${valueFmt(v,true)}</div>`); });
+    rect.addEventListener('mouseleave', hideTip);
+    svg.appendChild(rect);
+    const showInside = barLen > 46;
+    svg.appendChild(el('text', { x: showInside ? leftPad+barLen-6 : Math.min(leftPad+barLen+6, W-4), y: cy+3.5, 'text-anchor': showInside ? 'end' : 'start', 'font-size':10, fill: showInside ? '#fff8f0' : C.grey, class:'num-font' }, valueFmt(v, true)));
+  });
+}
+
+let resizeTimer;
+window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(()=>{ CHART_REGISTRY.forEach(fn=>fn()); }, 180); });
+
+/* =====================================================================
+   DATA LAYER — live fetch + parse from Google Sheets
+   ===================================================================== */
 const PRODUCTS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vREtg7WtbNmL0HJVjqK_n35EKvyJgo-FSX87yecqLIffYK8ijygYCK7DuqXD_YZGw/pub?gid=418554931&single=true&output=csv";
 const CUSTOMERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vREtg7WtbNmL0HJVjqK_n35EKvyJgo-FSX87yecqLIffYK8ijygYCK7DuqXD_YZGw/pub?gid=1559150069&single=true&output=csv";
 const SHEET_ID = "1-Rukist0OUfGXhqxmxhOcdgoH9VvDVyL";
 const PRODUCTS_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=418554931`;
 const CUSTOMERS_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1559150069`;
-
-const CATEGORY_COLORS = {
-  "MAIN PRODUCTS": "#333D16",
-  "MCP": "#6B7F2A",
-  "SWINE - BYPRODUCTS": "#9A9A92",
-  "PARTNER FARMS": "#2B2B28",
-  "POULTRY - BY PRODUCT": "#B7C77A",
-  "OTHERS": "#C7BE96",
-  "_default": "#8E8E86"
-};
-function catColor(cat){ return CATEGORY_COLORS[(cat||"").toUpperCase().trim()] || CATEGORY_COLORS._default; }
-function titleCase(s){ return (s||"").toLowerCase().replace(/\b\w/g, c=>c.toUpperCase()); }
-function peso(n, opts={}){
-  if(n===null||n===undefined||isNaN(n)) return "—";
-  const abs=Math.abs(n);
-  if(opts.compact && abs>=1000000) return (n<0?"-":"")+"₱"+(abs/1000000).toFixed(2)+"M";
-  if(opts.compact && abs>=1000) return (n<0?"-":"")+"₱"+(abs/1000).toFixed(1)+"K";
-  return "₱"+n.toLocaleString('en-PH', {maximumFractionDigits:0});
-}
-function num(n, compact=false){
-  if(n===null||n===undefined||isNaN(n)) return "—";
-  if(compact && Math.abs(n)>=1000) return (n/1000).toFixed(1)+"K";
-  return n.toLocaleString('en-PH', {maximumFractionDigits:0});
-}
-function pct(n){ if(n===null||n===undefined||!isFinite(n)) return "—"; return (n>=0?"+":"")+n.toFixed(1)+"%"; }
 
 async function fetchCSVOnce(url){
   const res = await fetch(url, {cache:"no-store"});
@@ -391,13 +591,8 @@ async function fetchCSVOnce(url){
 }
 async function fetchCSV(primaryUrl, fallbackUrl){
   try{ return await fetchCSVOnce(primaryUrl); }
-  catch(err){
-    if(!fallbackUrl) throw err;
-    try{ return await fetchCSVOnce(fallbackUrl); }
-    catch(err2){ throw err; }
-  }
+  catch(err){ if(!fallbackUrl) throw err; try{ return await fetchCSVOnce(fallbackUrl); } catch(e2){ throw err; } }
 }
-
 function cellStr(v){ return (v===null||v===undefined)? "" : v.toString().trim(); }
 function cellNum(v){
   const raw = cellStr(v).replace(/[^0-9.\-]/g,'');
@@ -405,7 +600,6 @@ function cellNum(v){
   const n = parseFloat(raw);
   return isNaN(n)?0:n;
 }
-
 function parseProducts(rows){
   const headerRowIdx = rows.findIndex(r => r.some(c => cellStr(c).toUpperCase()==='QTY'));
   if(headerRowIdx<0) throw new Error("Could not find QTY header row in Products sheet");
@@ -436,7 +630,6 @@ function parseProducts(rows){
   }
   return items;
 }
-
 function parseCustomers(rows){
   const headerRowIdx = rows.findIndex(r => r.some(c => cellStr(c).toUpperCase()==='QTY'));
   if(headerRowIdx<0) throw new Error("Could not find QTY header row in Customers sheet");
@@ -468,340 +661,376 @@ function parseCustomers(rows){
   return items;
 }
 
-let STATE = { products:[], customers:[], years:[], charts:{}, ov:{year:'All', category:'All'}, mp:{product:null, focusYear:'All'}, mcp:{year:'All', category:'All'}, cust:{year:'All', product:'All'} };
+let DATA = { products:[], customers:[], years:[], categories:[], catColor:{} };
 
-function destroyChart(id){ if(STATE.charts[id]){ STATE.charts[id].destroy(); delete STATE.charts[id]; } }
-function baseChartOpts(extra={}){
-  return Object.assign({
-    responsive:true, maintainAspectRatio:false,
-    plugins:{ legend:{ labels:{ font:{family:"'IBM Plex Sans'", size:10.5}, color:"#6E7166", boxWidth:11, usePointStyle:true } } },
-    scales:{
-      x:{ grid:{ display:false }, ticks:{ font:{family:"'IBM Plex Mono'", size:10}, color:"#6E7166" } },
-      y:{ grid:{ color:"#E6E8DC" }, ticks:{ font:{family:"'IBM Plex Mono'", size:10}, color:"#6E7166" } }
+function buildCategoryPalette(){
+  const cats = Array.from(new Set(DATA.products.map(p=>p.category)));
+  cats.sort((a,b)=>{
+    const am = a.toUpperCase().includes('MAIN PRODUCT'), bm = b.toUpperCase().includes('MAIN PRODUCT');
+    if(am&&!bm) return -1; if(bm&&!am) return 1; return 0;
+  });
+  DATA.categories = cats;
+  DATA.catColor = {};
+  cats.forEach((c,i)=> DATA.catColor[c] = CAT_PALETTE[i % CAT_PALETTE.length]);
+}
+function unitLabel(productName){
+  const m = productName.match(/\(([^)]+)\)\s*$/);
+  return m ? m[1] : 'UNITS';
+}
+
+/* ======================================================================
+   TIER 1 — OVERVIEW
+   ====================================================================== */
+function initTier1(){
+  const years = DATA.years;
+  const lastIdx = years.length-1;
+  document.getElementById('hdr-sub').textContent = `Overview · Main Products · MCP & By-Products · Customers — ${years[0]}–${years[lastIdx]}`;
+
+  let yearFilter='ALL', productFilter='ALL';
+  makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
+  makePills('t1-product-pills', [{value:'ALL',label:'All Products'}, ...DATA.categories.map(c=>({value:c,label:titleCase(c)}))], productFilter, v=>{ productFilter=v; render(); });
+
+  function scopedCats(){ return productFilter==='ALL' ? DATA.categories : [productFilter]; }
+  function totalsByYear(cats){
+    return years.map(y => DATA.products.filter(p=>cats.includes(p.category)).reduce((s,p)=> s+((p.years[y]||{}).amount||0), 0));
+  }
+
+  function render(){
+    const cats = scopedCats();
+    const arr = totalsByYear(cats);
+    const yIdx = yearFilter==='ALL' ? lastIdx : years.indexOf(yearFilter);
+    const yLabel = years[yIdx];
+    const val = arr[yIdx], prevVal = yIdx>0 ? arr[yIdx-1] : null;
+    const growth = prevVal ? (val-prevVal)/prevVal*100 : null;
+    const allTime = arr.reduce((a,b)=>a+b,0);
+    const prodTag = productFilter==='ALL' ? '' : titleCase(productFilter) + ' ';
+    const bestYearIdx = arr.indexOf(Math.max(...arr));
+
+    const catTotalsAtY = DATA.categories.map(c => (DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+((p.years[yLabel]||{}).amount||0),0)));
+    const leadIdx = catTotalsAtY.indexOf(Math.max(...catTotalsAtY));
+
+    const kpis = [
+      {lbl:`${prodTag}All-Time Total (${years[0]}–${years[lastIdx]})`, val:PHP(allTime,{compact:true}), delta:`${years.length} years tracked`, dir:'flat', border:C.olive},
+      {lbl:`Strongest Year (${prodTag||'Total'})`, val:String(years[bestYearIdx]), delta:PHP(arr[bestYearIdx],{compact:true}), dir:'flat', border:C.oliveDeep},
+      {lbl:`${yLabel} ${prodTag}Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark},
+      {lbl:`Product Lines in View`, val:String(cats.length), delta:`of ${DATA.categories.length} total`, dir:'flat', border:C.ink},
+      {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.inkSoft},
+    ];
+    document.getElementById('p1-kpis').innerHTML = kpis.map(k=>`
+      <div class="card kpi" style="border-top:3px solid ${k.border};">
+        <div class="lbl">${k.lbl}</div><div class="val num-font">${k.val}</div>
+        <div class="delta ${k.dir}">${k.delta ? (k.dir==='up'?'▲ ':k.dir==='down'?'▼ ':'· ') + k.delta : ''}</div>
+      </div>`).join('');
+
+    const hIdx = yearFilter==='ALL' ? null : yIdx;
+    document.getElementById('t1-chart1-title').textContent = productFilter==='ALL' ? 'Total sales by year' : `${titleCase(productFilter)} sales by year`;
+    document.getElementById('t1-chart1-cap').textContent = (productFilter==='ALL' ? 'Stacked by product line, in PHP' : 'In PHP') + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
+
+    if(productFilter==='ALL'){
+      drawBarChart('chart-overall-stack', { labels:years, series:DATA.categories.map(c=>({label:titleCase(c), color:DATA.catColor[c], data:totalsByYear([c])})), valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), highlightIndex:hIdx });
+    } else {
+      drawBarChart('chart-overall-stack', { labels:years, series:[{label:titleCase(productFilter), color:C.oliveDark, data:arr}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:hIdx });
     }
-  }, extra);
-}
-function getAllYears(){
-  const set = new Set();
-  STATE.products.forEach(p=>Object.keys(p.years).forEach(y=>set.add(y)));
-  return Array.from(set).filter(y=>y).sort();
-}
 
-function renderButtonGroup(containerId, options, activeValue, onChange){
-  const el = document.getElementById(containerId);
-  el.innerHTML = '';
-  options.forEach(opt=>{
-    const btn = document.createElement('button');
-    btn.className = 'pill-btn' + (opt.value===activeValue ? ' active' : '');
-    btn.textContent = opt.label;
-    btn.addEventListener('click', ()=> onChange(opt.value));
-    el.appendChild(btn);
-  });
-}
+    const growthArr = arr.map((v,i)=> i===0?null:(arr[i-1]?(v-arr[i-1])/arr[i-1]*100:null));
+    document.getElementById('t1-chart2-title').textContent = productFilter==='ALL' ? 'Year‑over‑year growth' : `${titleCase(productFilter)} YoY growth`;
+    document.getElementById('t1-chart2-cap').textContent = '% change in sales value' + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
+    drawLineChart('chart-yoy-growth', { labels:years, series:[{label:'YoY growth', color:C.oliveDark, bold:true, data:growthArr}], valueFmt:(v,full)=>(v>0&&full?'+':'')+v.toFixed(1)+'%', area:true, legend:false, highlightIndex:hIdx });
 
-/* ---------------- OVERVIEW ---------------- */
-function renderOverview(){
-  const years = STATE.years;
-  const categories = Array.from(new Set(STATE.products.map(p=>p.category)));
-
-  renderButtonGroup('ov-year', [{value:'All',label:'All Years'}].concat(years.map(y=>({value:y,label:y}))), STATE.ov.year, v=>{ STATE.ov.year=v; renderOverview(); });
-  renderButtonGroup('ov-category', [{value:'All',label:'All Products'}].concat(categories.map(c=>({value:c,label:titleCase(c)}))), STATE.ov.category, v=>{ STATE.ov.category=v; renderOverview(); });
-
-  const activeCats = STATE.ov.category==='All' ? categories : [STATE.ov.category];
-
-  const totalsByYearCat = {};
-  years.forEach(y=> totalsByYearCat[y] = {});
-  STATE.products.forEach(p=>{
-    if(!activeCats.includes(p.category)) return;
-    years.forEach(y=>{
-      const amt = (p.years[y]||{}).amount || 0;
-      totalsByYearCat[y][p.category] = (totalsByYearCat[y][p.category]||0) + amt;
+    let rows = '<thead><tr><th>Year</th>' + DATA.categories.map(c=>`<th class="r">${titleCase(c)}</th>`).join('') + '<th class="r">Total</th><th class="r">YoY</th></tr></thead><tbody>';
+    years.forEach((y,i)=>{
+      const rowHi = hIdx===i ? `style="background:${C.hoverTan};"` : '';
+      const total = DATA.categories.reduce((s,c)=> s+DATA.products.filter(p=>p.category===c).reduce((s2,p)=>s2+((p.years[y]||{}).amount||0),0), 0);
+      rows += `<tr ${rowHi}><td>${y}</td>` + DATA.categories.map(c=>{
+        const v = DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+((p.years[y]||{}).amount||0),0);
+        return `<td class="r num-font">${PHP(v,{compact:true})}</td>`;
+      }).join('') + `<td class="r num-font" style="font-weight:700;">${PHP(total,{compact:true})}</td><td class="r num-font" style="color:${growthArr[i]==null?C.greySoft:(growthArr[i]>=0?C.oliveDark:C.rust)}">${PCT(growthArr[i])}</td></tr>`;
     });
-  });
-  const yearTotals = years.map(y => Object.values(totalsByYearCat[y]).reduce((a,b)=>a+b,0));
-
-  const focusIdx = STATE.ov.year==='All' ? years.length-1 : years.indexOf(STATE.ov.year);
-  const focusTotal = yearTotals[focusIdx] || 0;
-  const prevTotal = yearTotals[focusIdx-1] || 0;
-  const yoy = prevTotal ? ((focusTotal-prevTotal)/prevTotal*100) : null;
-  const grandTotal = yearTotals.reduce((a,b)=>a+b,0);
-  const bestYearIdx = yearTotals.indexOf(Math.max(...yearTotals));
-
-  document.getElementById('ov-kpis').innerHTML = `
-    <div class="kpi-card"><p class="kpi-label">All-time total revenue</p><p class="kpi-value">${peso(grandTotal,{compact:true})}</p><span class="kpi-delta flat">${years[0]}–${years[years.length-1]}</span></div>
-    <div class="kpi-card"><p class="kpi-label">${years[focusIdx]} total revenue</p><p class="kpi-value">${peso(focusTotal,{compact:true})}</p>${yoy!==null?`<span class="kpi-delta ${yoy>=0?'up':'down'}">${yoy>=0?'▲':'▼'} ${pct(yoy)} vs ${years[focusIdx-1]}</span>`:''}</div>
-    <div class="kpi-card"><p class="kpi-label">Strongest year</p><p class="kpi-value">${years[bestYearIdx]}</p><span class="kpi-delta flat">${peso(yearTotals[bestYearIdx],{compact:true})}</span></div>
-    <div class="kpi-card"><p class="kpi-label">Product lines in view</p><p class="kpi-value">${activeCats.length}</p><span class="kpi-delta flat">of ${categories.length} total</span></div>
-  `;
-
-  destroyChart('ov-stacked');
-  STATE.charts['ov-stacked'] = new Chart(document.getElementById('ov-stacked'), {
-    type:'bar',
-    data:{ labels:years, datasets:activeCats.map(cat=>({ label:titleCase(cat), data:years.map(y=>totalsByYearCat[y][cat]||0), backgroundColor:catColor(cat), borderRadius:2 })) },
-    options: baseChartOpts({
-      scales:{ x:{stacked:true,grid:{display:false},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}}, y:{stacked:true,grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}} },
-      plugins:{ legend:{position:'bottom', labels:{font:{family:"'IBM Plex Sans'",size:10.5},color:"#6E7166",boxWidth:11,usePointStyle:true}}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${peso(c.parsed.y)}`}} }
-    })
-  });
-
-  destroyChart('ov-growth');
-  const growth = years.map((y,i)=> i===0? null : (yearTotals[i-1]? (yearTotals[i]-yearTotals[i-1])/yearTotals[i-1]*100 : null));
-  STATE.charts['ov-growth'] = new Chart(document.getElementById('ov-growth'), {
-    type:'line',
-    data:{ labels:years, datasets:[{ label:'YoY growth %', data:growth, borderColor:'#4F5D23', backgroundColor:'rgba(79,93,35,0.12)', fill:true, tension:.3, pointRadius:4, pointBackgroundColor:'#4F5D23', spanGaps:true }] },
-    options: baseChartOpts({ plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=> c.parsed.y===null?'n/a':pct(c.parsed.y)}}}, scales:{ x:{grid:{display:false},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}}, y:{grid:{color:"#E6E8DC"},ticks:{callback:v=>v+'%',font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}} } })
-  });
-
-  const table = document.getElementById('ov-table');
-  let thead = `<thead><tr><th>Product line</th>${years.map(y=>`<th>${y}</th>`).join('')}<th>Total</th></tr></thead>`;
-  let tbody = '<tbody>';
-  activeCats.forEach(cat=>{
-    const rowTotal = years.reduce((a,y)=>a+(totalsByYearCat[y][cat]||0),0);
-    tbody += `<tr><td>${titleCase(cat)}</td>${years.map(y=>`<td>${peso(totalsByYearCat[y][cat]||0,{compact:true})}</td>`).join('')}<td><strong>${peso(rowTotal,{compact:true})}</strong></td></tr>`;
-  });
-  tbody += `<tr style="font-weight:700;"><td>Grand Total</td>${years.map((y,i)=>`<td>${peso(yearTotals[i],{compact:true})}</td>`).join('')}<td>${peso(grandTotal,{compact:true})}</td></tr>`;
-  table.innerHTML = thead+tbody+'</tbody>';
-}
-
-/* ---------------- MAIN PRODUCTS ---------------- */
-function renderMainProducts(){
-  const mains = STATE.products.filter(p=>p.category.toUpperCase().includes('MAIN PRODUCT'));
-  if(!STATE.mp.product) STATE.mp.product = mains[0] && mains[0].product;
-  const years = STATE.years;
-
-  renderButtonGroup('mp-product', mains.map(p=>({value:p.product,label:titleCase(p.product)})), STATE.mp.product, v=>{ STATE.mp.product=v; renderMainProducts(); });
-  renderButtonGroup('mp-focusyear', [{value:'All',label:'All Years'}].concat(years.map(y=>({value:y,label:y}))), STATE.mp.focusYear, v=>{ STATE.mp.focusYear=v; renderMainProducts(); });
-
-  const p = mains.find(x=>x.product===STATE.mp.product) || mains[0];
-  if(!p) return;
-
-  const amounts = years.map(y=> (p.years[y]||{}).amount || 0);
-  const qtys = years.map(y=> (p.years[y]||{}).qty || 0);
-  const rates = years.map((y,i)=> qtys[i] ? amounts[i]/qtys[i] : null);
-
-  const focusIdx = STATE.mp.focusYear==='All' ? years.length-1 : years.indexOf(STATE.mp.focusYear);
-  const prevIdx = focusIdx-1;
-  const yoyAmt = amounts[prevIdx] ? ((amounts[focusIdx]-amounts[prevIdx])/amounts[prevIdx]*100) : null;
-  const yoyQty = qtys[prevIdx] ? ((qtys[focusIdx]-qtys[prevIdx])/qtys[prevIdx]*100) : null;
-  const yoyRate = (rates[prevIdx]&&rates[focusIdx]) ? ((rates[focusIdx]-rates[prevIdx])/rates[prevIdx]*100) : null;
-
-  document.getElementById('mp-kpis').innerHTML = `
-    <div class="kpi-card"><p class="kpi-label">${years[focusIdx]} volume</p><p class="kpi-value">${num(qtys[focusIdx],true)}</p>${yoyQty!==null?`<span class="kpi-delta ${yoyQty>=0?'up':'down'}">${yoyQty>=0?'▲':'▼'} ${pct(yoyQty)} vs ${years[prevIdx]}</span>`:''}</div>
-    <div class="kpi-card"><p class="kpi-label">${years[focusIdx]} sales value</p><p class="kpi-value">${peso(amounts[focusIdx],{compact:true})}</p>${yoyAmt!==null?`<span class="kpi-delta ${yoyAmt>=0?'up':'down'}">${yoyAmt>=0?'▲':'▼'} ${pct(yoyAmt)} vs ${years[prevIdx]}</span>`:''}</div>
-    <div class="kpi-card"><p class="kpi-label">${years[focusIdx]} avg. rate</p><p class="kpi-value">${rates[focusIdx]?peso(rates[focusIdx]):'—'}</p>${yoyRate!==null?`<span class="kpi-delta ${yoyRate>=0?'up':'down'}">${yoyRate>=0?'▲':'▼'} ${pct(yoyRate)} vs ${years[prevIdx]}</span>`:''}</div>
-    <div class="kpi-card"><p class="kpi-label">All-time revenue</p><p class="kpi-value">${peso(amounts.reduce((a,b)=>a+b,0),{compact:true})}</p><span class="kpi-delta flat">${years[0]}–${years[years.length-1]}</span></div>
-  `;
-
-  const barColors = years.map((y,i)=> i===focusIdx ? '#333D16' : '#B7C77A');
-
-  destroyChart('mp-value');
-  STATE.charts['mp-value'] = new Chart(document.getElementById('mp-value'), {
-    type:'bar',
-    data:{ labels:years, datasets:[{ label:'Sales value', data:amounts, backgroundColor:barColors, borderRadius:3 }] },
-    options: baseChartOpts({ plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>peso(c.parsed.y)}}}, scales:{ x:{grid:{display:false},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}}, y:{grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}} } })
-  });
-
-  destroyChart('mp-qty');
-  STATE.charts['mp-qty'] = new Chart(document.getElementById('mp-qty'), {
-    type:'bar',
-    data:{ labels:years, datasets:[{ label:'Quantity', data:qtys, backgroundColor:barColors, borderRadius:3 }] },
-    options: baseChartOpts({ plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>num(c.parsed.y)}}}, scales:{ x:{grid:{display:false},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}}, y:{grid:{color:"#E6E8DC"},ticks:{callback:v=>num(v,true),font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}} } })
-  });
-
-  const pointColors = years.map((y,i)=> i===focusIdx ? '#333D16' : '#B7C77A');
-  const pointRadii = years.map((y,i)=> i===focusIdx ? 6 : 3);
-  destroyChart('mp-rate');
-  STATE.charts['mp-rate'] = new Chart(document.getElementById('mp-rate'), {
-    type:'line',
-    data:{ labels:years, datasets:[{ label:'Unit rate', data:rates, borderColor:'#B7C77A', backgroundColor:'rgba(183,199,122,0.15)', fill:true, tension:.3, pointRadius:pointRadii, pointBackgroundColor:pointColors, spanGaps:true }] },
-    options: baseChartOpts({ plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.y?peso(c.parsed.y):'n/a'}}}, scales:{ x:{grid:{display:false},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}}, y:{grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}} } })
-  });
-
-  document.getElementById('mp-table').innerHTML = `<thead><tr><th>Year</th><th>Qty</th><th>Amount</th><th>Unit Rate</th></tr></thead>
-  <tbody>${years.map((y,i)=>`<tr style="${i===focusIdx?'font-weight:700;':''}"><td>${y}</td><td>${num(qtys[i])}</td><td>${peso(amounts[i])}</td><td>${rates[i]?peso(rates[i]):'—'}</td></tr>`).join('')}</tbody>`;
-}
-
-/* ---------------- MCP & BY-PRODUCTS ---------------- */
-function renderMCP(){
-  const years = STATE.years;
-  const nonMain = STATE.products.filter(p=>!p.category.toUpperCase().includes('MAIN PRODUCT'));
-  const categories = Array.from(new Set(nonMain.map(p=>p.category)));
-
-  renderButtonGroup('mcp-year', [{value:'All',label:'All Years'}].concat(years.map(y=>({value:y,label:y}))), STATE.mcp.year, v=>{ STATE.mcp.year=v; renderMCP(); });
-  renderButtonGroup('mcp-category', [{value:'All',label:'All Categories'}].concat(categories.map(c=>({value:c,label:titleCase(c)}))), STATE.mcp.category, v=>{ STATE.mcp.category=v; renderMCP(); });
-
-  const activeCats = STATE.mcp.category==='All' ? categories : [STATE.mcp.category];
-  const yearsInScope = STATE.mcp.year==='All' ? years : [STATE.mcp.year];
-
-  const totalsByYearCat = {};
-  years.forEach(y=> totalsByYearCat[y] = {});
-  nonMain.forEach(p=>{
-    years.forEach(y=>{ const amt=(p.years[y]||{}).amount||0; totalsByYearCat[y][p.category]=(totalsByYearCat[y][p.category]||0)+amt; });
-  });
-
-  const scopedItems = nonMain.filter(p=>activeCats.includes(p.category));
-  let scopedTotal = 0;
-  scopedItems.forEach(p=> yearsInScope.forEach(y=> scopedTotal += (p.years[y]||{}).amount||0));
-  const leadingCat = activeCats.map(c=>({c, total: yearsInScope.reduce((a,y)=>a+(totalsByYearCat[y][c]||0),0)})).sort((a,b)=>b.total-a.total)[0];
-  const activeItemCount = scopedItems.filter(p=> yearsInScope.some(y=>(p.years[y]||{}).amount)).length;
-
-  document.getElementById('mcp-kpis').innerHTML = `
-    <div class="kpi-card"><p class="kpi-label">Selection total</p><p class="kpi-value">${peso(scopedTotal,{compact:true})}</p><span class="kpi-delta flat">${activeCats.length} categor${activeCats.length===1?'y':'ies'}</span></div>
-    <div class="kpi-card"><p class="kpi-label">Leading category</p><p class="kpi-value" style="font-size:16px;">${leadingCat?titleCase(leadingCat.c):'—'}</p><span class="kpi-delta flat">${leadingCat?peso(leadingCat.total,{compact:true}):''}</span></div>
-    <div class="kpi-card"><p class="kpi-label">Active line items</p><p class="kpi-value">${activeItemCount}</p><span class="kpi-delta flat">in current selection</span></div>
-  `;
-
-  destroyChart('mcp-bycat');
-  STATE.charts['mcp-bycat'] = new Chart(document.getElementById('mcp-bycat'), {
-    type:'bar',
-    data:{ labels:years, datasets:categories.map(cat=>({ label:titleCase(cat), data:years.map(y=>totalsByYearCat[y][cat]||0), backgroundColor:catColor(cat), borderRadius:2, hidden: !activeCats.includes(cat) })) },
-    options: baseChartOpts({
-      plugins:{ legend:{position:'bottom', labels:{font:{family:"'IBM Plex Sans'",size:10.5},color:"#6E7166",boxWidth:11,usePointStyle:true}}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${peso(c.parsed.y)}`}} },
-      scales:{ x:{stacked:true,grid:{display:false},ticks:{font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}}, y:{stacked:true,grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:10},color:"#6E7166"}} }
-    })
-  });
-
-  const ranked = scopedItems.map(p=>{
-    const total = yearsInScope.reduce((a,y)=>a+((p.years[y]||{}).amount||0),0);
-    return {...p, total};
-  }).filter(p=>p.total>0).sort((a,b)=>b.total-a.total).slice(0,10);
-
-  destroyChart('mcp-topitems');
-  STATE.charts['mcp-topitems'] = new Chart(document.getElementById('mcp-topitems'), {
-    type:'bar',
-    data:{ labels:ranked.map(p=>titleCase(p.product)), datasets:[{ label:'Total', data:ranked.map(p=>p.total), backgroundColor:ranked.map(p=>catColor(p.category)), borderRadius:3 }] },
-    options: baseChartOpts({
-      indexAxis:'y',
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>peso(c.parsed.x)}}},
-      scales:{ x:{grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:9.5},color:"#6E7166"}}, y:{grid:{display:false},ticks:{font:{family:"'IBM Plex Sans'",size:10},color:"#6E7166"}} }
-    })
-  });
-
-  const wrap = document.getElementById('mcp-cat-tables');
-  wrap.innerHTML = '';
-  activeCats.forEach(cat=>{
-    const items = nonMain.filter(p=>p.category===cat);
-    if(!items.length) return;
-    const title = document.createElement('div');
-    title.className = 'cat-section-title';
-    title.style.color = catColor(cat);
-    title.textContent = titleCase(cat);
-    wrap.appendChild(title);
-    const panel = document.createElement('div');
-    panel.className = 'panel';
-    const tableWrap = document.createElement('div');
-    tableWrap.className = 'table-wrap short';
-    const table = document.createElement('table');
-    table.className = 'data-table';
-    table.innerHTML = `<thead><tr><th>Item</th>${years.map(y=>`<th>${y} Qty</th><th>${y} ₱</th>`).join('')}</tr></thead>
-      <tbody>${items.map(p=>`<tr><td>${titleCase(p.product)}</td>${years.map(y=>`<td>${num((p.years[y]||{}).qty||0)}</td><td>${peso((p.years[y]||{}).amount||0,{compact:true})}</td>`).join('')}</tr>`).join('')}</tbody>`;
-    tableWrap.appendChild(table);
-    panel.appendChild(tableWrap);
-    wrap.appendChild(panel);
-  });
-}
-
-/* ---------------- CUSTOMERS ---------------- */
-function renderCustomers(){
-  const years = STATE.years;
-  const products = Array.from(new Set(STATE.customers.map(c=>c.product))).sort();
-
-  renderButtonGroup('cust-year', [{value:'All',label:'All Years'}].concat(years.map(y=>({value:y,label:y}))), STATE.cust.year, v=>{ STATE.cust.year=v; renderCustomers(); });
-
-  const prodSelect = document.getElementById('cust-product');
-  if(prodSelect.options.length===0){
-    prodSelect.innerHTML = `<option value="All">All Products</option>` + products.map(p=>`<option value="${p}">${titleCase(p)}</option>`).join('');
-    prodSelect.addEventListener('change', e=>{ STATE.cust.product=e.target.value; renderCustomers(); });
+    rows += '</tbody>';
+    document.getElementById('p1-table').innerHTML = rows;
   }
-  prodSelect.value = STATE.cust.product;
+  registerChart(render);
+  render();
+}
 
-  const yearsInScope = STATE.cust.year==='All' ? years : [STATE.cust.year];
-  const scoped = STATE.customers.filter(c=> STATE.cust.product==='All' || c.product===STATE.cust.product);
+/* ======================================================================
+   TIER 2 — MAIN PRODUCTS
+   ====================================================================== */
+function initTier2(){
+  const mains = DATA.products.filter(p=>p.category.toUpperCase().includes('MAIN PRODUCT'));
+  const years = DATA.years;
+  let currentProduct = mains[0] && mains[0].product;
+  let currentYear = 'ALL';
 
-  const byCustomer = {};
-  scoped.forEach(c=>{
-    if(!byCustomer[c.customer]) byCustomer[c.customer] = { customer:c.customer, total:0, byYear:{}, products:{} };
-    let rowTotal = 0;
-    yearsInScope.forEach(y=>{
-      const amt = (c.years[y]||{}).amount || 0;
-      byCustomer[c.customer].total += amt;
-      byCustomer[c.customer].byYear[y] = (byCustomer[c.customer].byYear[y]||0)+amt;
-      rowTotal += amt;
+  document.getElementById('t2-sub').textContent = mains.map(p=>titleCase(p.product)).join(', ') + " — the company's core revenue lines";
+
+  makePills('p2-pills', mains.map(p=>({value:p.product,label:titleCase(p.product)})), currentProduct, v=>{ currentProduct=v; render(); });
+  makePills('p2-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], currentYear, v=>{ currentYear=v; render(); });
+
+  function render(){
+    const p = mains.find(x=>x.product===currentProduct) || mains[0];
+    if(!p) return;
+    const unit = unitLabel(p.product);
+    const focusIdx = currentYear==='ALL' ? years.length-1 : years.indexOf(currentYear);
+    const focusY = years[focusIdx];
+    const prevY = focusIdx>0 ? years[focusIdx-1] : null;
+
+    const qtys = years.map(y=>(p.years[y]||{}).qty||0);
+    const amts = years.map(y=>(p.years[y]||{}).amount||0);
+    const rates = years.map((y,i)=> qtys[i] ? amts[i]/qtys[i] : null);
+
+    const qtyGrowth = prevY!=null && qtys[focusIdx-1] ? ((qtys[focusIdx]-qtys[focusIdx-1])/qtys[focusIdx-1]*100) : null;
+    const pesoGrowth = prevY!=null && amts[focusIdx-1] ? ((amts[focusIdx]-amts[focusIdx-1])/amts[focusIdx-1]*100) : null;
+    const rateGrowth = (prevY!=null && rates[focusIdx-1] && rates[focusIdx]) ? ((rates[focusIdx]-rates[focusIdx-1])/rates[focusIdx-1]*100) : null;
+    const allTimeRevenue = amts.reduce((a,b)=>a+b,0);
+
+    document.getElementById('p2-kpis').innerHTML = `
+      <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">${focusY} Volume (${unit})</div><div class="val num-font">${NUM(qtys[focusIdx],{compact:true})}</div>
+        <div class="delta ${qtyGrowth>=0?'up':'down'}">${qtyGrowth==null?'· first year on record':(qtyGrowth>=0?'▲ ':'▼ ')+PCT(qtyGrowth)+' vs '+prevY}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.olive};"><div class="lbl">${focusY} Sales Value</div><div class="val num-font">${PHP(amts[focusIdx],{compact:true})}</div>
+        <div class="delta ${pesoGrowth>=0?'up':'down'}">${pesoGrowth==null?'· first year on record':(pesoGrowth>=0?'▲ ':'▼ ')+PCT(pesoGrowth)+' vs '+prevY}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">${focusY} Avg. Rate</div><div class="val num-font">${rates[focusIdx]?('₱'+rates[focusIdx].toFixed(2)):'—'}</div>
+        <div class="delta ${rateGrowth>=0?'up':'down'}">${rateGrowth==null?'· n/a':(rateGrowth>=0?'▲ ':'▼ ')+PCT(rateGrowth)+' vs '+prevY}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">All-Time Revenue</div><div class="val num-font">${PHP(allTimeRevenue,{compact:true})}</div>
+        <div class="delta">· ${years[0]}–${years[years.length-1]}</div></div>
+    `;
+
+    document.getElementById('p2-value-cap').textContent = 'Total PHP per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
+    document.getElementById('p2-qty-title').textContent = `Annual volume (${unit})`;
+    document.getElementById('p2-qty-cap').textContent = 'Units per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
+    document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (currentYear!=='ALL' ? `, ${focusY} bold` : '');
+
+    drawBarChart('chart-product-annual', { labels:years, series:[{label:'Sales value', color:C.oliveDark, data:amts}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:focusIdx });
+    drawBarChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), legend:false, highlightIndex:focusIdx });
+    drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx });
+
+    document.getElementById('p2-table').innerHTML = `<thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
+      <tbody>${years.map((y,i)=>`<tr ${i===focusIdx?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody>`;
+  }
+  registerChart(render);
+  render();
+}
+
+/* ======================================================================
+   TIER 3 — MCP & BY-PRODUCTS
+   ====================================================================== */
+function initTier3(){
+  const years = DATA.years;
+  const nonMain = DATA.products.filter(p=>!p.category.toUpperCase().includes('MAIN PRODUCT'));
+  const groupNames = DATA.categories.filter(c=>!c.toUpperCase().includes('MAIN PRODUCT'));
+
+  let yearFilter='ALL', catFilter='ALL';
+  makePills('p3-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
+  makePills('p3-cat-pills', [{value:'ALL',label:'All Categories'}, ...groupNames.map(g=>({value:g,label:titleCase(g)}))], catFilter, v=>{ catFilter=v; render(); });
+
+  function scopeYears(){ return yearFilter==='ALL' ? years : [yearFilter]; }
+  function itemTotal(item, yrs){ return yrs.reduce((s,y)=> s+((item.years[y]||{}).amount||0), 0); }
+  function groupTotalForYears(g, yrs){ return nonMain.filter(p=>p.category===g).reduce((s,item)=> s+itemTotal(item,yrs), 0); }
+
+  function render(){
+    const yrs = scopeYears();
+    const scopedGroups = catFilter==='ALL' ? groupNames : [catFilter];
+    const grandTotal = scopedGroups.reduce((s,g)=> s+groupTotalForYears(g,yrs), 0);
+
+    const focusYear = yearFilter==='ALL' ? years[years.length-1] : yearFilter;
+    const focusIdx = years.indexOf(focusYear);
+    const prevYear = focusIdx>0 ? years[focusIdx-1] : null;
+    const focusTotal = scopedGroups.reduce((s,g)=> s+groupTotalForYears(g,[focusYear]), 0);
+    const prevTotal = prevYear!=null ? scopedGroups.reduce((s,g)=> s+groupTotalForYears(g,[prevYear]), 0) : null;
+    const growth = (prevYear!=null && prevTotal) ? (focusTotal-prevTotal)/prevTotal*100 : null;
+
+    let kpi3Label, kpi3Val, kpi3Sub;
+    if(catFilter==='ALL'){
+      const groupFinal = groupNames.map(g=>groupTotalForYears(g,yrs));
+      const topIdx = groupFinal.indexOf(Math.max(...groupFinal));
+      kpi3Label='Leading Category'; kpi3Val=titleCase(groupNames[topIdx]); kpi3Sub=PHP(groupFinal[topIdx],{compact:true});
+    } else {
+      let items = nonMain.filter(p=>p.category===catFilter).map(item=>({name:item.product, total:itemTotal(item,yrs)})).filter(i=>i.total>0);
+      items.sort((a,b)=>b.total-a.total);
+      kpi3Label='Leading Item'; kpi3Val=items[0]?titleCase(items[0].name):'—'; kpi3Sub=items[0]?PHP(items[0].total,{compact:true}):'—';
+    }
+
+    let allItems = [];
+    scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const total=itemTotal(item,yrs); if(total>0) allItems.push({name:item.product, group:g, total}); }));
+    const activeLineItems = allItems.length;
+    const yearRangeLabel = yearFilter==='ALL' ? `${years[0]}–${years[years.length-1]}` : String(focusYear);
+    const catLabel = catFilter==='ALL' ? 'All Categories' : titleCase(catFilter);
+
+    document.getElementById('p3-kpis').innerHTML = `
+      <div class="card kpi" style="border-top:3px solid ${C.olive};"><div class="lbl">${catLabel} Total, ${yearRangeLabel}</div><div class="val num-font">${PHP(grandTotal,{compact:true})}</div><div class="delta">· ${scopedGroups.length} categor${scopedGroups.length===1?'y':'ies'}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">${focusYear} Total</div><div class="val num-font">${PHP(focusTotal,{compact:true})}</div><div class="delta ${growth>=0?'up':'down'}">${growth==null?'· first year on record':(growth>=0?'▲ ':'▼ ')+PCT(growth)+' vs '+prevYear}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">${kpi3Label}</div><div class="val" style="font-size:15px;">${kpi3Val}</div><div class="delta">· ${kpi3Sub}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">Active Line Items</div><div class="val num-font">${activeLineItems}</div><div class="delta">· in current selection</div></div>
+    `;
+
+    const hIdx = yearFilter==='ALL' ? null : focusIdx;
+    document.getElementById('p3-chart1-title').textContent = catFilter==='ALL' ? 'Sales by category' : `${titleCase(catFilter)} — sales by year`;
+    document.getElementById('p3-chart1-cap').textContent = 'Total PHP per year' + (catFilter==='ALL' ? ', by group' : '');
+    if(catFilter==='ALL'){
+      drawBarChart('chart-mcp-groups', { labels:years, series:groupNames.map(g=>({label:titleCase(g), color:DATA.catColor[g], data:years.map(y=>groupTotalForYears(g,[y]))})), valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), highlightIndex:hIdx });
+    } else {
+      drawBarChart('chart-mcp-groups', { labels:years, series:[{label:titleCase(catFilter), color:DATA.catColor[catFilter], data:years.map(y=>groupTotalForYears(catFilter,[y]))}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:hIdx });
+    }
+
+    allItems.sort((a,b)=>b.total-a.total);
+    const topItems = allItems.slice(0,10);
+    document.getElementById('p3-chart2-title').textContent = 'Top contributing line items';
+    document.getElementById('p3-chart2-cap').textContent = `Ranked by total ${yearRangeLabel} sales value${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
+    drawHBarChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i.total), color:C.oliveDark, valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}) });
+
+    let html = '';
+    scopedGroups.forEach(g=>{
+      const items = nonMain.filter(p=>p.category===g).filter(item=> years.some(y=>((item.years[y]||{}).amount||0) > 0));
+      if(!items.length) return;
+      html += `<div class="subsection-label" style="color:${DATA.catColor[g]};">${titleCase(g)}</div><div class="card card-pad"><div class="tbl-scroll"><table>
+        <thead><tr><th>Item</th>${years.map(y=>`<th class="r">${y} Qty</th><th class="r">${y} ₱</th>`).join('')}</tr></thead><tbody>`;
+      items.forEach(item=>{
+        html += `<tr><td class="name">${titleCase(item.product)}</td>`;
+        years.forEach(y=>{
+          const hi = (yearFilter!=='ALL' && y===focusYear) ? `style="background:${C.hoverTan};"` : '';
+          html += `<td class="r num-font" ${hi}>${NUM((item.years[y]||{}).qty||0)}</td><td class="r num-font" ${hi}>${PHP((item.years[y]||{}).amount||0)}</td>`;
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div></div>';
     });
-    byCustomer[c.customer].products[c.product] = (byCustomer[c.customer].products[c.product]||0)+rowTotal;
-  });
-  const custList = Object.values(byCustomer).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
-
-  const byProduct = {};
-  scoped.forEach(c=>{
-    const total = yearsInScope.reduce((a,y)=>a+((c.years[y]||{}).amount||0),0);
-    byProduct[c.product] = (byProduct[c.product]||0)+total;
-  });
-  const prodList = Object.entries(byProduct).filter(p=>p[1]>0).sort((a,b)=>b[1]-a[1]);
-
-  const grandTotal = custList.reduce((a,c)=>a+c.total,0);
-  const top12 = custList.slice(0,12);
-  const top5Share = custList.slice(0,5).reduce((a,c)=>a+c.total,0);
-
-  document.getElementById('cust-kpis').innerHTML = `
-    <div class="kpi-card"><p class="kpi-label">Total revenue</p><p class="kpi-value">${peso(grandTotal,{compact:true})}</p><span class="kpi-delta flat">${STATE.cust.year==='All' ? years[0]+'–'+years[years.length-1] : STATE.cust.year}</span></div>
-    <div class="kpi-card"><p class="kpi-label">Active accounts</p><p class="kpi-value">${custList.length}</p><span class="kpi-delta flat">in current selection</span></div>
-    <div class="kpi-card"><p class="kpi-label">Top account</p><p class="kpi-value" style="font-size:16px;">${custList[0]?titleCase(custList[0].customer):'—'}</p><span class="kpi-delta flat">${custList[0]?peso(custList[0].total,{compact:true}):''}</span></div>
-    <div class="kpi-card"><p class="kpi-label">Top-5 concentration</p><p class="kpi-value">${grandTotal?(top5Share/grandTotal*100).toFixed(0):0}%</p><span class="kpi-delta flat">of scoped revenue</span></div>
-  `;
-
-  destroyChart('cust-top12');
-  STATE.charts['cust-top12'] = new Chart(document.getElementById('cust-top12'), {
-    type:'bar',
-    data:{ labels:top12.map(c=>titleCase(c.customer)), datasets:[{ label:'Total sales', data:top12.map(c=>c.total), backgroundColor:'#4F5D23', borderRadius:3 }] },
-    options: baseChartOpts({ indexAxis:'y', plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>peso(c.parsed.x)}}}, scales:{ x:{grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:9.5}, color:"#6E7166"}}, y:{grid:{display:false},ticks:{font:{family:"'IBM Plex Sans'",size:10},color:"#6E7166"}} } })
-  });
-
-  const topProds = prodList.slice(0,12);
-  destroyChart('cust-topproducts');
-  STATE.charts['cust-topproducts'] = new Chart(document.getElementById('cust-topproducts'), {
-    type:'bar',
-    data:{ labels:topProds.map(p=>titleCase(p[0])), datasets:[{ label:'Total sales', data:topProds.map(p=>p[1]), backgroundColor:'#B7C77A', borderRadius:3 }] },
-    options: baseChartOpts({ indexAxis:'y', plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>peso(c.parsed.x)}}}, scales:{ x:{grid:{color:"#E6E8DC"},ticks:{callback:v=>peso(v,{compact:true}),font:{family:"'IBM Plex Mono'",size:9.5}, color:"#6E7166"}}, y:{grid:{display:false},ticks:{font:{family:"'IBM Plex Sans'",size:10},color:"#6E7166"}} } })
-  });
-
-  function drawTable(filterText){
-    const q = (filterText||'').toLowerCase();
-    const rows = custList.filter(c=>c.customer.toLowerCase().includes(q));
-    const table = document.getElementById('cust-table');
-    table.innerHTML = `<thead><tr><th>#</th><th>Customer</th>${yearsInScope.map(y=>`<th>${y}</th>`).join('')}<th>Total</th><th>Top product</th></tr></thead>
-    <tbody>${rows.map((c,i)=>{
-      const topProd = Object.entries(c.products).sort((a,b)=>b[1]-a[1])[0];
-      return `<tr><td>${i+1}</td><td>${titleCase(c.customer)}</td>${yearsInScope.map(y=>`<td>${peso(c.byYear[y]||0,{compact:true})}</td>`).join('')}<td><strong>${peso(c.total,{compact:true})}</strong></td><td><span class="badge">${topProd?titleCase(topProd[0]):'—'}</span></td></tr>`;
-    }).join('')}</tbody>`;
+    document.getElementById('p3-groups').innerHTML = html;
   }
-  drawTable(document.getElementById('cust-search').value);
-  const searchInput = document.getElementById('cust-search');
-  if(!searchInput.dataset.bound){ searchInput.addEventListener('input', e=>drawTable(e.target.value)); searchInput.dataset.bound='1'; }
+  registerChart(render);
+  render();
 }
 
-function renderAll(){
-  STATE.years = getAllYears();
-  renderOverview();
-  renderMainProducts();
-  renderMCP();
-  renderCustomers();
+/* ======================================================================
+   TIER 4 — CUSTOMERS
+   ====================================================================== */
+function initTier4(){
+  const years = DATA.years;
+  const products = Array.from(new Set(DATA.customers.map(c=>c.product))).sort();
+
+  let yearFilter='ALL', productFilter='ALL';
+  makePills('p4-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
+  makeSelect('p4-product-select', [{value:'ALL',label:'All Products'}, ...products.map(p=>({value:p,label:titleCase(p)}))], productFilter, v=>{ productFilter=v; render(); });
+
+  function custAmount(c, product, year){
+    const lines = DATA.customers.filter(x=>x.customer===c.customer && (product==='ALL'||x.product===product));
+    if(year==='ALL') return lines.reduce((s,l)=> s+years.reduce((s2,y)=>s2+((l.years[y]||{}).amount||0),0), 0);
+    return lines.reduce((s,l)=> s+((l.years[year]||{}).amount||0), 0);
+  }
+  function custYearlyAmounts(c, product){
+    const lines = DATA.customers.filter(x=>x.customer===c.customer && (product==='ALL'||x.product===product));
+    const out = {};
+    years.forEach(y=> out[y] = lines.reduce((s,l)=>s+((l.years[y]||{}).amount||0),0));
+    return out;
+  }
+  function custTopProducts(c){
+    const lines = DATA.customers.filter(x=>x.customer===c.customer);
+    const byProd = {};
+    lines.forEach(l=>{ const t = years.reduce((s,y)=>s+((l.years[y]||{}).amount||0),0); byProd[l.product]=(byProd[l.product]||0)+t; });
+    return Object.entries(byProd).sort((a,b)=>b[1]-a[1]);
+  }
+
+  function render(){
+    const uniqueCustomers = Array.from(new Set(DATA.customers.map(c=>c.customer))).map(name=>({customer:name}));
+    const filtered = uniqueCustomers.map(c => ({ c, amt: custAmount(c, productFilter, yearFilter) })).filter(x=>x.amt>0).sort((a,b)=>b.amt-a.amt);
+
+    const totalRevenue = filtered.reduce((s,x)=>s+x.amt,0);
+    const top1 = filtered[0];
+    const top5Sum = filtered.slice(0,5).reduce((s,x)=>s+x.amt,0);
+    const concentration = totalRevenue ? (top5Sum/totalRevenue*100) : 0;
+    const scopeLabel = (productFilter==='ALL'?'':titleCase(productFilter)+' — ') + (yearFilter==='ALL' ? `${years[0]}–${years[years.length-1]}` : yearFilter);
+
+    document.getElementById('p4-kpis').innerHTML = `
+      <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">Total Revenue</div><div class="val num-font">${PHP(totalRevenue,{compact:true})}</div><div class="delta">· ${scopeLabel}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.olive};"><div class="lbl">Active Accounts</div><div class="val num-font">${filtered.length}</div><div class="delta">· in current selection</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">Top Account</div><div class="val" style="font-size:14.5px;">${top1?titleCase(top1.c.customer):'—'}</div><div class="delta">· ${top1?PHP(top1.amt,{compact:true}):'—'}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">Top‑5 Concentration</div><div class="val num-font">${concentration.toFixed(0)}%</div><div class="delta">· of scoped revenue</div></div>
+    `;
+
+    document.getElementById('p4-chart1-title').textContent = 'Top 12 customers';
+    document.getElementById('p4-chart1-cap').textContent = `By sales value — ${scopeLabel}`;
+    const top12 = filtered.slice(0,12);
+    drawHBarChart('chart-cust-top', { labels:top12.map(x=>titleCase(x.c.customer)), values:top12.map(x=>x.amt), color:C.oliveDark, valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}) });
+
+    if(productFilter==='ALL'){
+      document.getElementById('p4-chart2-title').textContent = 'Top products across customers';
+      document.getElementById('p4-chart2-cap').textContent = `By sales value — ${yearFilter==='ALL'?'all years':yearFilter}`;
+      const byProd = {};
+      DATA.customers.forEach(l=>{ const v = yearFilter==='ALL' ? years.reduce((s,y)=>s+((l.years[y]||{}).amount||0),0) : ((l.years[yearFilter]||{}).amount||0); byProd[l.product]=(byProd[l.product]||0)+v; });
+      const scored = Object.entries(byProd).map(([name,val])=>({name,val})).filter(p=>p.val>0).sort((a,b)=>b.val-a.val).slice(0,10);
+      drawHBarChart('chart-cust-products', { labels:scored.map(p=>titleCase(p.name)), values:scored.map(p=>p.val), color:C.olive, valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}) });
+    } else {
+      document.getElementById('p4-chart2-title').textContent = `${titleCase(productFilter)} — yearly trend`;
+      document.getElementById('p4-chart2-cap').textContent = 'Total sales value per year, all customers';
+      const lines = DATA.customers.filter(l=>l.product===productFilter);
+      const vals = years.map(y=> lines.reduce((s,l)=>s+((l.years[y]||{}).amount||0),0));
+      drawBarChart('chart-cust-products', { labels:years, series:[{label:titleCase(productFilter), color:C.olive, data:vals}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex: yearFilter==='ALL'?null:years.indexOf(yearFilter) });
+    }
+
+    function renderTable(list){
+      const showProductCol = productFilter==='ALL';
+      let html = '<thead><tr><th>#</th><th>Customer</th>' + years.map(y=>`<th class="r">${y}</th>`).join('') + '<th class="r">Total</th>' + (showProductCol?'<th>Top Product</th>':'<th class="r">Share of Acct.</th>') + '</tr></thead><tbody>';
+      list.forEach((x,i)=>{
+        const c = x.c;
+        const ya = custYearlyAmounts(c, productFilter);
+        const topProds = custTopProducts(c);
+        const custTotalAll = topProds.reduce((s,p)=>s+p[1],0);
+        html += `<tr>
+          <td class="rank num-font">${i+1}</td>
+          <td class="name">${titleCase(c.customer)}</td>
+          ${years.map(y=>`<td class="r num-font">${ya[y]?PHP(ya[y],{compact:true}):'—'}</td>`).join('')}
+          <td class="r num-font" style="font-weight:700;">${PHP(x.amt,{compact:true})}</td>
+          ${showProductCol ? `<td><span class="badge">${topProds[0]?titleCase(topProds[0][0]):'—'}</span></td>` : `<td class="r num-font">${custTotalAll?(x.amt/custTotalAll*100).toFixed(0)+'%':'—'}</td>`}
+        </tr>`;
+      });
+      html += '</tbody>';
+      document.getElementById('p4-table').innerHTML = html;
+    }
+    renderTable(filtered);
+    document.getElementById('cust-search').oninput = (e)=>{
+      const q = e.target.value.trim().toLowerCase();
+      const list = q ? filtered.filter(x=>x.c.customer.toLowerCase().includes(q)) : filtered;
+      renderTable(list);
+    };
+  }
+  registerChart(render);
+  render();
 }
 
+/* ---------------- tab switching ---------------- */
+document.querySelectorAll('.qnav .btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.qnav .btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tier').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tier).classList.add('active');
+    CHART_REGISTRY.forEach(fn=>fn());
+  });
+});
+
+/* ---------------- load pipeline ---------------- */
+let initialized = false;
 async function loadData(){
   document.getElementById('loadingBanner').style.display='flex';
   document.getElementById('errorBanner').style.display='none';
   document.getElementById('syncDot').classList.remove('err');
   document.getElementById('syncText').textContent = 'Connecting to sheet…';
   try{
-    await Promise.all([
-      ensureLib('Papa', 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js'),
-      ensureLib('Chart', 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js')
-    ]);
+    await ensurePapa();
     const [prodRows, custRows] = await Promise.all([ fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK), fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK) ]);
-    STATE.products = parseProducts(prodRows);
-    STATE.customers = parseCustomers(custRows);
-    renderAll();
+    DATA.products = parseProducts(prodRows);
+    DATA.customers = parseCustomers(custRows);
+    const yset = new Set(); DATA.products.forEach(p=>Object.keys(p.years).forEach(y=>{ if(y) yset.add(y); }));
+    DATA.years = Array.from(yset).sort();
+    buildCategoryPalette();
+
+    if(!initialized){
+      initTier1(); initTier2(); initTier3(); initTier4();
+      initialized = true;
+    } else {
+      CHART_REGISTRY.length = 0;
+      initTier1(); initTier2(); initTier3(); initTier4();
+    }
+
     document.getElementById('app').style.display='block';
     document.getElementById('loadingBanner').style.display='none';
     const now = new Date();
@@ -814,23 +1043,13 @@ async function loadData(){
     const eb = document.getElementById('errorBanner');
     eb.style.display='flex';
     if(err.message && err.message.includes('load')){
-      eb.textContent = "Couldn't load required chart libraries (" + err.message + "). This is usually a firewall, ad-blocker, or network security setting blocking script downloads — try a different network or disable ad-blocking extensions for this page, then hit Refresh.";
+      eb.textContent = "Couldn't load the CSV parser library (" + err.message + "). This is usually a firewall, ad-blocker, or network security setting — try a different network or disable ad-blocking extensions for this page, then hit Refresh.";
     } else {
       eb.textContent = "Couldn't load live data from the Google Sheet (" + err.message + "). Make sure both tabs are still published to the web as CSV, then hit Refresh.";
     }
   }
 }
-
 document.getElementById('refreshBtn').addEventListener('click', loadData);
-document.querySelectorAll('nav.tabs button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('view-'+btn.dataset.view).classList.add('active');
-  });
-});
-
 loadData();
 </script>
 </body>
