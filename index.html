@@ -59,7 +59,7 @@
 
   /* ---- main ---- */
   .wrap{ max-width:1200px; margin:0 auto; padding:22px 20px 60px; }
-  .tier{ border-top:6px solid var(--ink); padding-top:22px; margin-top:40px; scroll-margin-top:64px; display:none; }
+  .tier{ border-top:6px solid var(--ink); padding-top:14px; margin-top:10px; scroll-margin-top:64px; display:none; }
   .tier.active{ display:block; }
   .section-title{ font-size:20px; font-weight:700; color:var(--ink); margin-bottom:2px; }
   .section-sub{ font-size:12px; color:var(--grey); margin-bottom:14px; }
@@ -848,10 +848,19 @@ function initTier1(){
       }
     }
 
+    const kpi1 = yearFilter==='ALL'
+      ? {lbl:`All-Time Total (${years[0]}–${years[lastIdx]})`, val:PHP(allTime,{compact:true}), delta:`${years.length} years tracked`, dir:'flat', border:C.olive}
+      : {lbl:`${yLabel} Total`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.olive};
+
+    const shareOfAllTime = allTime ? (val/allTime*100) : null;
+    const kpi3 = yearFilter==='ALL'
+      ? {lbl:`${yLabel} Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark}
+      : {lbl:`${yLabel} Share of All-Time`, val: shareOfAllTime!=null ? shareOfAllTime.toFixed(1)+'%' : '—', delta:`${PCT(growth)} YoY`, dir:(growth||0)>=0?'up':'down', border:C.oliveDark};
+
     const kpis = [
-      {lbl:`All-Time Total (${years[0]}–${years[lastIdx]})`, val:PHP(allTime,{compact:true}), delta:`${years.length} years tracked`, dir:'flat', border:C.olive},
+      kpi1,
       kpi2,
-      {lbl:`${yLabel} Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark},
+      kpi3,
       {lbl:`Product Lines`, val:String(cats.length), delta:`categories tracked`, dir:'flat', border:C.ink},
       {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.inkSoft},
     ];
@@ -921,14 +930,8 @@ function initTier2(){
 
     const qtys = years.map(y=>(p.years[y]||{}).qty||0);
     const amts = years.map(y=>(p.years[y]||{}).amount||0);
-    const rates = years.map((y,i)=> qtys[i] ? amts[i]/qtys[i] : null);
     const totalQty = qtys.reduce((a,b)=>a+b,0);
     const totalAmt = amts.reduce((a,b)=>a+b,0);
-    const overallRate = totalQty ? totalAmt/totalQty : null;
-
-    const qtyGrowth = (prevY!=null && qtys[focusIdx-1]) ? ((qtys[focusIdx]-qtys[focusIdx-1])/qtys[focusIdx-1]*100) : null;
-    const pesoGrowth = (prevY!=null && amts[focusIdx-1]) ? ((amts[focusIdx]-amts[focusIdx-1])/amts[focusIdx-1]*100) : null;
-    const rateGrowth = (prevY!=null && rates[focusIdx-1] && rates[focusIdx]) ? ((rates[focusIdx]-rates[focusIdx-1])/rates[focusIdx-1]*100) : null;
 
     // ---- Monthly detail (if the MAIN PRODUCTS monthly sheet has this product) ----
     const blockKey = monthlyBlockKeyFor(p.product);
@@ -938,6 +941,38 @@ function initTier2(){
     const monthlyAmt = block ? (block[MONTHLY_AMOUNT_METRIC]||{}) : {};
     const monthlyYears = years.filter(y=> monthlyQty[y] && Object.values(monthlyQty[y]).some(v=>v>0));
     const hasMonthly = monthlyYears.length > 0;
+
+    // Rate basis: Market Hogs / Cattle are priced per KILO, not per head —
+    // use the sheet's own QUANTITY (KILOS) table as the rate denominator.
+    // Hatching Eggs has no kilos concept, so it stays per-PCS as before.
+    const useKiloRate = (blockKey==='MARKET HOGS' || blockKey==='CATTLE');
+    const rateQtyMetric = useKiloRate ? 'QUANTITY (KILOS)' : qtyMetric;
+    const monthlyRateQty = block ? (block[rateQtyMetric]||{}) : {};
+    const rateUnitLabel = useKiloRate ? 'kilo' : (unit ? unit.replace(/s$/i,'').toLowerCase() : 'unit');
+
+    function rateForYear(y){
+      if(hasMonthly){
+        const qd = monthlyRateQty[y]||{}, ad = monthlyAmt[y]||{};
+        let sumQ=0, sumA=0;
+        for(let m=0;m<12;m++){ sumQ += qd[m]||0; sumA += ad[m]||0; }
+        if(sumQ>0) return sumA/sumQ;
+      }
+      const idx = years.indexOf(y);
+      return qtys[idx] ? amts[idx]/qtys[idx] : null;
+    }
+    const rates = years.map(y=>rateForYear(y));
+    let overallRate;
+    if(hasMonthly){
+      let sumAllQ=0, sumAllA=0;
+      years.forEach(y=>{ const qd=monthlyRateQty[y]||{}, ad=monthlyAmt[y]||{}; for(let m=0;m<12;m++){ sumAllQ+=qd[m]||0; sumAllA+=ad[m]||0; } });
+      overallRate = sumAllQ>0 ? sumAllA/sumAllQ : (totalQty?totalAmt/totalQty:null);
+    } else {
+      overallRate = totalQty ? totalAmt/totalQty : null;
+    }
+
+    const qtyGrowth = (prevY!=null && qtys[focusIdx-1]) ? ((qtys[focusIdx]-qtys[focusIdx-1])/qtys[focusIdx-1]*100) : null;
+    const pesoGrowth = (prevY!=null && amts[focusIdx-1]) ? ((amts[focusIdx]-amts[focusIdx-1])/amts[focusIdx-1]*100) : null;
+    const rateGrowth = (prevY!=null && rates[focusIdx-1] && rates[focusIdx]) ? ((rates[focusIdx]-rates[focusIdx-1])/rates[focusIdx-1]*100) : null;
 
     // ---- KPI cards: per-year figures for a specific year, all-time/combined figures for "All Years" ----
     let kpis;
@@ -954,7 +989,7 @@ function initTier2(){
       kpis = [
         {lbl:`All-Time Volume (${unit})`, val:NUM(totalQty,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`},
         {lbl:'All-Time Sales Value', val:PHP(totalAmt,{compact:true}), delta:`· ${years.length} years`},
-        {lbl:'Overall Avg. Rate', val:overallRate?('₱'+overallRate.toFixed(2)):'—', delta:'· weighted average'},
+        {lbl:'Overall Avg. Rate', val:overallRate?('₱'+overallRate.toFixed(2)+' /'+rateUnitLabel):'—', delta:'· weighted average'},
         kpi4,
       ];
     } else {
@@ -973,7 +1008,7 @@ function initTier2(){
       kpis = [
         {lbl:`${focusY} Volume (${unit})`, val:NUM(qtys[focusIdx],{compact:true}), delta:qtyGrowth==null?'· first year on record':(qtyGrowth>=0?'▲ ':'▼ ')+PCT(qtyGrowth)+' vs '+prevY, dir:qtyGrowth>=0?'up':'down'},
         {lbl:`${focusY} Sales Value`, val:PHP(amts[focusIdx],{compact:true}), delta:pesoGrowth==null?'· first year on record':(pesoGrowth>=0?'▲ ':'▼ ')+PCT(pesoGrowth)+' vs '+prevY, dir:pesoGrowth>=0?'up':'down'},
-        {lbl:`${focusY} Avg. Rate`, val:rates[focusIdx]?('₱'+rates[focusIdx].toFixed(2)):'—', delta:rateGrowth==null?'· n/a':(rateGrowth>=0?'▲ ':'▼ ')+PCT(rateGrowth)+' vs '+prevY, dir:rateGrowth>=0?'up':'down'},
+        {lbl:`${focusY} Avg. Rate`, val:rates[focusIdx]?('₱'+rates[focusIdx].toFixed(2)+' /'+rateUnitLabel):'—', delta:rateGrowth==null?'· n/a':(rateGrowth>=0?'▲ ':'▼ ')+PCT(rateGrowth)+' vs '+prevY, dir:rateGrowth>=0?'up':'down'},
         kpi4,
       ];
     }
@@ -1002,14 +1037,14 @@ function initTier2(){
       });
 
       // ---- Bottom-left: monthly avg rate overlay ----
-      document.getElementById('p2-rate-title').textContent = 'Average unit rate';
+      document.getElementById('p2-rate-title').textContent = `Average unit rate (per ${rateUnitLabel})`;
       document.getElementById('p2-rate-cap').textContent = isAll
-        ? `${titleCase(p.product)} — monthly average price (PHP), all years overlaid`
-        : `${titleCase(p.product)} — monthly average price (PHP), ${focusY} highlighted`;
+        ? `${titleCase(p.product)} — monthly average price per ${rateUnitLabel} (PHP), all years overlaid`
+        : `${titleCase(p.product)} — monthly average price per ${rateUnitLabel} (PHP), ${focusY} highlighted`;
       drawLineChart('chart-product-rate', {
         labels: MONTH_ABBR,
         series: monthlyYears.map((y,yi)=>{
-          const qd = monthlyQty[y]||{}, ad = monthlyAmt[y]||{};
+          const qd = monthlyRateQty[y]||{}, ad = monthlyAmt[y]||{};
           const data = MONTH_ABBR.map((_,mi)=> qd[mi] ? (ad[mi]||0)/qd[mi] : null);
           return isAll
             ? { label:y, color: YEAR_PALETTE[yi % YEAR_PALETTE.length], bold:false, opacity:1, showPoints:true, data }
