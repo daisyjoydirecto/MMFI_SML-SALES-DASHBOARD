@@ -424,9 +424,19 @@ function drawBarChart(containerId, {labels, series, valueFmt, legend=true, highl
   const {svg, W, H} = initSvg(containerId);
   const isNarrow = W < 380;
   const leftPad = 46, rightPad = 10, topPad = 12;
-  const legendH = legend && series.length > 1 ? (isNarrow ? 34 : 22) : 0;
+  const plotW = W - leftPad - rightPad;
+
+  // Pre-measure legend items and how many rows they'll wrap into, so we can
+  // reserve exactly enough vertical space (avoids clipped/cut-off legend rows).
+  let legendItems = [], legendRows = 0;
+  if (legend && series.length > 1){
+    series.forEach(ser=>{ const label = isNarrow && ser.label.length > 16 ? ser.label.slice(0,14)+'…' : ser.label; legendItems.push({label, color:ser.color, w: 14 + label.length*5.6 + 14}); });
+    legendRows = 1; let rowX = leftPad; const maxX = leftPad + plotW;
+    legendItems.forEach(it=>{ if (rowX + it.w > maxX + 4){ legendRows++; rowX = leftPad; } rowX += it.w; });
+  }
+  const legendH = legendRows > 0 ? (legendRows * 17 + 18) : 0;
   const bottomPad = 24 + legendH;
-  const plotW = W - leftPad - rightPad, plotH = H - topPad - bottomPad;
+  const plotH = H - topPad - bottomPad;
   if (plotW <= 0 || plotH <= 0) return;
   const sums = labels.map((_, i) => series.reduce((s, ser) => s + (ser.data[i]||0), 0));
   const maxVal = Math.max(...sums, 0);
@@ -457,13 +467,11 @@ function drawBarChart(containerId, {labels, series, valueFmt, legend=true, highl
     });
     svg.appendChild(el('text', {x:cx, y:topPad+plotH+16, 'text-anchor':'middle', 'font-size':10.5, fill: highlightIndex===i?C.ink:C.grey, 'font-weight': highlightIndex===i?'700':'400'}, lab));
   });
-  if (legend && series.length > 1){
+  if (legendRows > 0){
     const legY = topPad + plotH + 34;
-    const items = [];
-    series.forEach(ser=>{ const label = isNarrow && ser.label.length > 16 ? ser.label.slice(0,14)+'…' : ser.label; items.push({label, color:ser.color, w: 14 + label.length*5.6 + 14}); });
     let rowY = legY, rowX = leftPad; const maxX = leftPad + plotW;
-    items.forEach(it=>{
-      if (rowX + it.w > maxX + 4){ rowX = leftPad; rowY += 16; }
+    legendItems.forEach(it=>{
+      if (rowX + it.w > maxX + 4){ rowX = leftPad; rowY += 17; }
       svg.appendChild(el('rect', {x:rowX, y:rowY-8, width:9, height:9, rx:2, fill:it.color}));
       svg.appendChild(el('text', {x:rowX+14, y:rowY, 'font-size':10.5, fill:C.grey}, it.label));
       rowX += it.w;
@@ -471,7 +479,7 @@ function drawBarChart(containerId, {labels, series, valueFmt, legend=true, highl
   }
 }
 
-function drawLineChart(containerId, {labels, series, valueFmt, area=false, legend=true, highlightIndex=null}){
+function drawLineChart(containerId, {labels, series, valueFmt, area=false, legend=true, highlightIndex=null, showValueLabels=false}){
   const {svg, W, H} = initSvg(containerId);
   const isNarrow = W < 380;
   const leftPad = 48, rightPad = 12, topPad = 14;
@@ -527,6 +535,12 @@ function drawLineChart(containerId, {labels, series, valueFmt, area=false, legen
       c.addEventListener('mousemove', (e)=>{ showTip(e, `<div class="tt-title">${labels[i]}</div><div class="tt-row"><span class="tt-swatch" style="background:${ser.color}"></span>${ser.label}: <strong>${valueFmt(v,true)}</strong></div>`); });
       c.addEventListener('mouseleave', hideTip);
       svg.appendChild(c);
+      if (showValueLabels){
+        const py = yAt(v);
+        const above = py - topPad > 16;
+        const ly = above ? py - 10 : py + 15;
+        svg.appendChild(el('text', {x:xAt(i), y:ly, 'text-anchor':'middle', 'font-size':10, 'font-weight':'600', fill:ser.color, class:'num-font'}, valueFmt(v,true)));
+      }
     });
   });
   if (legend && series.length > 1){
@@ -727,7 +741,7 @@ function initTier1(){
     const growthArr = arr.map((v,i)=> i===0?null:(arr[i-1]?(v-arr[i-1])/arr[i-1]*100:null));
     document.getElementById('t1-chart2-title').textContent = 'Year‑over‑year growth';
     document.getElementById('t1-chart2-cap').textContent = '% change in sales value' + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
-    drawLineChart('chart-yoy-growth', { labels:years, series:[{label:'YoY growth', color:C.oliveDark, bold:true, data:growthArr}], valueFmt:(v,full)=>(v>0&&full?'+':'')+v.toFixed(1)+'%', area:true, legend:false, highlightIndex:hIdx });
+    drawLineChart('chart-yoy-growth', { labels:years, series:[{label:'YoY growth', color:C.oliveDark, bold:true, data:growthArr}], valueFmt:(v,full)=>(v>0&&full?'+':'')+v.toFixed(1)+'%', area:true, legend:false, highlightIndex:hIdx, showValueLabels:true });
 
     let rows = '<thead><tr><th>Year</th>' + DATA.categories.map(c=>`<th class="r">${titleCase(c)}</th>`).join('') + '<th class="r">Total</th><th class="r">YoY</th></tr></thead><tbody>';
     years.forEach((y,i)=>{
@@ -794,7 +808,7 @@ function initTier2(){
 
     drawBarChart('chart-product-annual', { labels:years, series:[{label:'Sales value', color:C.oliveDark, data:amts}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:focusIdx });
     drawBarChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), legend:false, highlightIndex:focusIdx });
-    drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx });
+    drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
     document.getElementById('p2-table').innerHTML = `<thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
       <tbody>${years.map((y,i)=>`<tr ${i===focusIdx?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody>`;
