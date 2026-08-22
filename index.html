@@ -220,14 +220,14 @@
 
     <div class="chart-grid even">
       <div class="card card-pad">
-        <div class="card-title">Annual sales value</div>
-        <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
-        <div class="chart-h tall" id="chart-product-annual"></div>
-      </div>
-      <div class="card card-pad">
         <div class="card-title" id="p2-qty-title">Annual quantity</div>
         <div class="card-cap" id="p2-qty-cap">Units per year</div>
         <div class="chart-h tall" id="chart-product-qty"></div>
+      </div>
+      <div class="card card-pad">
+        <div class="card-title">Annual sales value</div>
+        <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
+        <div class="chart-h tall" id="chart-product-annual"></div>
       </div>
     </div>
 
@@ -589,6 +589,20 @@ function drawHBarChart(containerId, {labels, values, color, valueFmt}){
 
 let resizeTimer;
 window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(()=>{ CHART_REGISTRY.forEach(fn=>fn()); }, 180); });
+
+// Belt-and-suspenders: some browsers/layouts don't finish sizing the grid
+// on the very first frame after the app becomes visible. Watch the app
+// container and re-render charts whenever its real size changes/settles,
+// rather than relying on a single timed guess.
+let roTimer;
+const appResizeObserver = new ResizeObserver(()=>{
+  clearTimeout(roTimer);
+  roTimer = setTimeout(()=>{ CHART_REGISTRY.forEach(fn=>fn()); }, 60);
+});
+function watchAppSizing(){
+  const appEl = document.getElementById('app');
+  if(appEl) appResizeObserver.observe(appEl);
+}
 
 /* =====================================================================
    DATA LAYER — live fetch + parse from Google Sheets
@@ -1045,6 +1059,7 @@ async function loadData(){
     }
     // safety re-render on next frame, in case layout hadn't fully settled yet
     requestAnimationFrame(()=> CHART_REGISTRY.forEach(fn=>fn()));
+    watchAppSizing();
 
     const now = new Date();
     document.getElementById('syncText').textContent = 'Synced ' + now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
