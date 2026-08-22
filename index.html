@@ -674,7 +674,21 @@ function parseProducts(rows){
     });
     items.push(entry);
   }
+  applyCategoryBoundaryFix(items);
   return items;
+}
+function applyCategoryBoundaryFix(items){
+  const poultryStart = items.findIndex(it=> /HATCHING EGGS B/i.test(it.product));
+  const poultryEnd = items.findIndex(it=> /CHICKEN DUNG/i.test(it.product));
+  if(poultryStart>=0 && poultryEnd>=poultryStart){
+    const catName = items[poultryStart].category;
+    for(let i=poultryStart;i<=poultryEnd;i++) items[i].category = catName;
+  }
+  const othersStart = items.findIndex(it=> /CARNERO/i.test(it.product));
+  if(othersStart>=0){
+    const catName = items[othersStart].category;
+    for(let i=othersStart;i<items.length;i++) items[i].category = catName;
+  }
 }
 function parseCustomers(rows){
   const headerRowIdx = rows.findIndex(r => r.some(c => cellStr(c).toUpperCase()==='QTY'));
@@ -810,9 +824,33 @@ function initTier1(){
     const catTotalsAtY = DATA.categories.map(c => (DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+((p.years[yLabel]||{}).amount||0),0)));
     const leadIdx = catTotalsAtY.indexOf(Math.max(...catTotalsAtY));
 
+    // "Strongest Year" only makes sense with All Years selected. Once a
+    // specific year is picked, swap it for "Strongest Month" — computed
+    // from the combined monthly figures of the three Main Products (the
+    // only sheet with month-level detail; other categories are annual-only).
+    let kpi2;
+    if(yearFilter==='ALL'){
+      kpi2 = {lbl:'Strongest Year', val:String(years[bestYearIdx]), delta:PHP(arr[bestYearIdx],{compact:true}), dir:'flat', border:C.oliveDeep};
+    } else {
+      const monthlyBlocks = DATA.monthlyMain||{};
+      const monthTotals = new Array(12).fill(0);
+      let anyData = false;
+      Object.values(monthlyBlocks).forEach(block=>{
+        const amtByYear = (block && block['SALES IN PESO']) || {};
+        const md = amtByYear[yLabel];
+        if(md){ anyData = true; for(let m=0;m<12;m++) monthTotals[m] += (md[m]||0); }
+      });
+      if(anyData){
+        const bestM = monthTotals.indexOf(Math.max(...monthTotals));
+        kpi2 = {lbl:`Strongest Month, ${yLabel}`, val:MONTH_ABBR[bestM], delta:`${PHP(monthTotals[bestM],{compact:true})} · Main Products`, dir:'flat', border:C.oliveDeep};
+      } else {
+        kpi2 = {lbl:'Strongest Year', val:String(years[bestYearIdx]), delta:PHP(arr[bestYearIdx],{compact:true}), dir:'flat', border:C.oliveDeep};
+      }
+    }
+
     const kpis = [
       {lbl:`All-Time Total (${years[0]}–${years[lastIdx]})`, val:PHP(allTime,{compact:true}), delta:`${years.length} years tracked`, dir:'flat', border:C.olive},
-      {lbl:`Strongest Year`, val:String(years[bestYearIdx]), delta:PHP(arr[bestYearIdx],{compact:true}), dir:'flat', border:C.oliveDeep},
+      kpi2,
       {lbl:`${yLabel} Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark},
       {lbl:`Product Lines`, val:String(cats.length), delta:`categories tracked`, dir:'flat', border:C.ink},
       {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.inkSoft},
@@ -876,18 +914,21 @@ function initTier2(){
     const p = mains.find(x=>x.product===currentProduct) || mains[0];
     if(!p) return;
     const unit = unitLabel(p.product);
-    const focusIdx = currentYear==='ALL' ? years.length-1 : years.indexOf(currentYear);
-    const focusY = years[focusIdx];
-    const prevY = focusIdx>0 ? years[focusIdx-1] : null;
+    const isAll = currentYear==='ALL';
+    const focusIdx = isAll ? null : years.indexOf(currentYear);
+    const focusY = isAll ? null : years[focusIdx];
+    const prevY = (focusIdx!=null && focusIdx>0) ? years[focusIdx-1] : null;
 
     const qtys = years.map(y=>(p.years[y]||{}).qty||0);
     const amts = years.map(y=>(p.years[y]||{}).amount||0);
     const rates = years.map((y,i)=> qtys[i] ? amts[i]/qtys[i] : null);
+    const totalQty = qtys.reduce((a,b)=>a+b,0);
+    const totalAmt = amts.reduce((a,b)=>a+b,0);
+    const overallRate = totalQty ? totalAmt/totalQty : null;
 
-    const qtyGrowth = prevY!=null && qtys[focusIdx-1] ? ((qtys[focusIdx]-qtys[focusIdx-1])/qtys[focusIdx-1]*100) : null;
-    const pesoGrowth = prevY!=null && amts[focusIdx-1] ? ((amts[focusIdx]-amts[focusIdx-1])/amts[focusIdx-1]*100) : null;
+    const qtyGrowth = (prevY!=null && qtys[focusIdx-1]) ? ((qtys[focusIdx]-qtys[focusIdx-1])/qtys[focusIdx-1]*100) : null;
+    const pesoGrowth = (prevY!=null && amts[focusIdx-1]) ? ((amts[focusIdx]-amts[focusIdx-1])/amts[focusIdx-1]*100) : null;
     const rateGrowth = (prevY!=null && rates[focusIdx-1] && rates[focusIdx]) ? ((rates[focusIdx]-rates[focusIdx-1])/rates[focusIdx-1]*100) : null;
-    const allTimeRevenue = amts.reduce((a,b)=>a+b,0);
 
     // ---- Monthly detail (if the MAIN PRODUCTS monthly sheet has this product) ----
     const blockKey = monthlyBlockKeyFor(p.product);
@@ -898,57 +939,81 @@ function initTier2(){
     const monthlyYears = years.filter(y=> monthlyQty[y] && Object.values(monthlyQty[y]).some(v=>v>0));
     const hasMonthly = monthlyYears.length > 0;
 
-    // peak month for the focus year (fall back to nearest earlier year with data)
-    let peakYear = null, peakMonthIdx = null, peakVal = null;
-    if(hasMonthly){
-      peakYear = monthlyQty[focusY] ? focusY : monthlyYears[monthlyYears.length-1];
-      const md = monthlyQty[peakYear] || {};
-      let best=-1, bestIdx=null;
-      for(let m=0;m<12;m++){ const v=md[m]||0; if(v>best){ best=v; bestIdx=m; } }
-      if(bestIdx!==null && best>0){ peakMonthIdx = bestIdx; peakVal = best; }
+    // ---- KPI cards: per-year figures for a specific year, all-time/combined figures for "All Years" ----
+    let kpis;
+    if(isAll){
+      let kpi4;
+      if(hasMonthly){
+        const monthTotals = new Array(12).fill(0);
+        monthlyYears.forEach(y=>{ const md=monthlyQty[y]||{}; for(let m=0;m<12;m++) monthTotals[m]+=(md[m]||0); });
+        const bestM = monthTotals.indexOf(Math.max(...monthTotals));
+        kpi4 = {lbl:'Peak Month (All Years)', val:MONTH_ABBR[bestM], delta:`· ${NUM(monthTotals[bestM],{compact:true})} ${unit} combined`};
+      } else {
+        kpi4 = {lbl:'Years Tracked', val:String(years.length), delta:`· ${years[0]}–${years[years.length-1]}`};
+      }
+      kpis = [
+        {lbl:`All-Time Volume (${unit})`, val:NUM(totalQty,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`},
+        {lbl:'All-Time Sales Value', val:PHP(totalAmt,{compact:true}), delta:`· ${years.length} years`},
+        {lbl:'Overall Avg. Rate', val:overallRate?('₱'+overallRate.toFixed(2)):'—', delta:'· weighted average'},
+        kpi4,
+      ];
+    } else {
+      let kpi4;
+      if(hasMonthly){
+        const peakYear = monthlyQty[focusY] ? focusY : monthlyYears[monthlyYears.length-1];
+        const md = monthlyQty[peakYear] || {};
+        let best=-1, bestIdx=null;
+        for(let m=0;m<12;m++){ const v=md[m]||0; if(v>best){ best=v; bestIdx=m; } }
+        kpi4 = (bestIdx!==null && best>0)
+          ? {lbl:`Peak Month, ${peakYear}`, val:MONTH_ABBR[bestIdx], delta:`· ${NUM(best,{compact:true})} ${unit}`}
+          : {lbl:'All-Time Revenue', val:PHP(totalAmt,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`};
+      } else {
+        kpi4 = {lbl:'All-Time Revenue', val:PHP(totalAmt,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`};
+      }
+      kpis = [
+        {lbl:`${focusY} Volume (${unit})`, val:NUM(qtys[focusIdx],{compact:true}), delta:qtyGrowth==null?'· first year on record':(qtyGrowth>=0?'▲ ':'▼ ')+PCT(qtyGrowth)+' vs '+prevY, dir:qtyGrowth>=0?'up':'down'},
+        {lbl:`${focusY} Sales Value`, val:PHP(amts[focusIdx],{compact:true}), delta:pesoGrowth==null?'· first year on record':(pesoGrowth>=0?'▲ ':'▼ ')+PCT(pesoGrowth)+' vs '+prevY, dir:pesoGrowth>=0?'up':'down'},
+        {lbl:`${focusY} Avg. Rate`, val:rates[focusIdx]?('₱'+rates[focusIdx].toFixed(2)):'—', delta:rateGrowth==null?'· n/a':(rateGrowth>=0?'▲ ':'▼ ')+PCT(rateGrowth)+' vs '+prevY, dir:rateGrowth>=0?'up':'down'},
+        kpi4,
+      ];
     }
+    const kpiBorders = [C.oliveDark, C.olive, C.ink, C.inkSoft];
+    document.getElementById('p2-kpis').innerHTML = kpis.map((k,i)=>`
+      <div class="card kpi" style="border-top:3px solid ${kpiBorders[i]};"><div class="lbl">${k.lbl}</div><div class="val num-font">${k.val}</div>
+        <div class="delta ${k.dir==='up'?'up':k.dir==='down'?'down':''}">${k.delta}</div></div>
+    `).join('');
 
-    const kpi4 = hasMonthly && peakMonthIdx!==null
-      ? {lbl:`Peak Month, ${peakYear}`, val:MONTH_ABBR[peakMonthIdx], delta:`· ${NUM(peakVal,{compact:true})} ${unit}`}
-      : {lbl:'All-Time Revenue', val:PHP(allTimeRevenue,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`};
-
-    document.getElementById('p2-kpis').innerHTML = `
-      <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">${focusY} Volume (${unit})</div><div class="val num-font">${NUM(qtys[focusIdx],{compact:true})}</div>
-        <div class="delta ${qtyGrowth>=0?'up':'down'}">${qtyGrowth==null?'· first year on record':(qtyGrowth>=0?'▲ ':'▼ ')+PCT(qtyGrowth)+' vs '+prevY}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.olive};"><div class="lbl">${focusY} Sales Value</div><div class="val num-font">${PHP(amts[focusIdx],{compact:true})}</div>
-        <div class="delta ${pesoGrowth>=0?'up':'down'}">${pesoGrowth==null?'· first year on record':(pesoGrowth>=0?'▲ ':'▼ ')+PCT(pesoGrowth)+' vs '+prevY}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">${focusY} Avg. Rate</div><div class="val num-font">${rates[focusIdx]?('₱'+rates[focusIdx].toFixed(2)):'—'}</div>
-        <div class="delta ${rateGrowth>=0?'up':'down'}">${rateGrowth==null?'· n/a':(rateGrowth>=0?'▲ ':'▼ ')+PCT(rateGrowth)+' vs '+prevY}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">${kpi4.lbl}</div><div class="val num-font">${kpi4.val}</div>
-        <div class="delta">${kpi4.delta}</div></div>
-    `;
-
-    document.getElementById('p2-value-cap').textContent = 'Total PHP per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
+    document.getElementById('p2-value-cap').textContent = 'Total PHP per year' + (!isAll ? ` — ${focusY} bold` : '');
     drawBarChart('chart-product-annual', { labels:years, series:[{label:'Sales value', color:C.oliveDark, data:amts}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:focusIdx });
 
     if(hasMonthly){
       // ---- Top-left: real monthly overlay across years ----
       document.getElementById('p2-qty-title').textContent = `Monthly ${unit.toLowerCase()} by year`;
-      document.getElementById('p2-qty-cap').textContent = `${titleCase(p.product)} — overlaid across ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
+      document.getElementById('p2-qty-cap').textContent = isAll
+        ? `${titleCase(p.product)} — all years overlaid, ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`
+        : `${titleCase(p.product)} — ${focusY} highlighted against ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
       drawLineChart('chart-product-qty', {
         labels: MONTH_ABBR,
-        series: monthlyYears.map(y=>({
-          label: y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY,
-          opacity: y===focusY ? 1 : 0.55, showPoints: y===focusY,
-          data: MONTH_ABBR.map((_,mi)=> (monthlyQty[y]||{})[mi] ?? null)
-        })),
+        series: monthlyYears.map((y,yi)=> isAll
+          ? { label:y, color: YEAR_PALETTE[yi % YEAR_PALETTE.length], bold:false, opacity:1, showPoints:true, data: MONTH_ABBR.map((_,mi)=> (monthlyQty[y]||{})[mi] ?? null) }
+          : { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY, data: MONTH_ABBR.map((_,mi)=> (monthlyQty[y]||{})[mi] ?? null) }
+        ),
         valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), legend:true
       });
 
       // ---- Bottom-left: monthly avg rate overlay ----
       document.getElementById('p2-rate-title').textContent = 'Average unit rate';
-      document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — monthly average price (PHP), overlaid by year`;
+      document.getElementById('p2-rate-cap').textContent = isAll
+        ? `${titleCase(p.product)} — monthly average price (PHP), all years overlaid`
+        : `${titleCase(p.product)} — monthly average price (PHP), ${focusY} highlighted`;
       drawLineChart('chart-product-rate', {
         labels: MONTH_ABBR,
-        series: monthlyYears.map(y=>{
+        series: monthlyYears.map((y,yi)=>{
           const qd = monthlyQty[y]||{}, ad = monthlyAmt[y]||{};
-          return { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY,
-            data: MONTH_ABBR.map((_,mi)=> qd[mi] ? (ad[mi]||0)/qd[mi] : null) };
+          const data = MONTH_ABBR.map((_,mi)=> qd[mi] ? (ad[mi]||0)/qd[mi] : null);
+          return isAll
+            ? { label:y, color: YEAR_PALETTE[yi % YEAR_PALETTE.length], bold:false, opacity:1, showPoints:true, data }
+            : { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY, data };
         }),
         valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), legend:true
       });
@@ -960,7 +1025,7 @@ function initTier2(){
       monthlyYears.forEach(y=> MONTH_ABBR.forEach((_,mi)=>{ const v=(monthlyQty[y]||{})[mi]||0; if(v>maxCell) maxCell=v; }));
       let hm = '<div class="tbl-scroll"><table class="heatmap-table"><thead><tr><th class="yr"></th>' + MONTH_ABBR.map(m=>`<th>${m}</th>`).join('') + '</tr></thead><tbody>';
       monthlyYears.forEach(y=>{
-        hm += `<tr class="${y===focusY?'focus-row':''}"><td class="yr">${y}</td>`;
+        hm += `<tr class="${(!isAll && y===focusY)?'focus-row':''}"><td class="yr">${y}</td>`;
         MONTH_ABBR.forEach((_,mi)=>{
           const v = (monthlyQty[y]||{})[mi] || 0;
           const bg = heatColor(v, maxCell);
@@ -974,17 +1039,17 @@ function initTier2(){
     } else {
       // ---- Fallback: no monthly source for this product, annual-only view ----
       document.getElementById('p2-qty-title').textContent = `Annual volume (${unit})`;
-      document.getElementById('p2-qty-cap').textContent = 'Units per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
+      document.getElementById('p2-qty-cap').textContent = 'Units per year' + (!isAll ? ` — ${focusY} bold` : '');
       drawLineChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, bold:true, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-rate-title').textContent = 'Average unit rate';
-      document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (currentYear!=='ALL' ? `, ${focusY} bold` : '');
+      document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (!isAll ? `, ${focusY} bold` : '');
       drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-detail-title').textContent = 'Year-by-year detail';
       document.getElementById('p2-detail-cap').textContent = 'No monthly breakdown in source data for this product';
       document.getElementById('p2-detail-content').innerHTML = `<div class="tbl-scroll"><table><thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
-        <tbody>${years.map((y,i)=>`<tr ${i===focusIdx?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody></table></div>`;
+        <tbody>${years.map((y,i)=>`<tr ${(!isAll && i===focusIdx)?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody></table></div>`;
     }
   }
   registerChart(render);
