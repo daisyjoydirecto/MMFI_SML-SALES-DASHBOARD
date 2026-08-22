@@ -115,6 +115,13 @@
   .search-box svg{ flex-shrink:0; opacity:.5; }
 
   .subsection-label{ font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--olive-dark); margin:24px 0 10px; padding-top:14px; border-top:1px solid var(--line); }
+
+  .heatmap-table{ border-collapse:collapse; width:100%; font-size:11px; }
+  .heatmap-table th{ padding:4px 3px; font-size:9.5px; text-align:center; color:var(--grey); border-bottom:none; }
+  .heatmap-table th.yr{ text-align:left; padding-left:6px; }
+  .heatmap-table td{ padding:5px 3px; text-align:center; border-bottom:none; border-radius:2px; font-family:'Courier New',monospace; font-size:10.5px; }
+  .heatmap-table td.yr{ text-align:left; font-family:'Georgia',serif; font-weight:700; font-size:11.5px; padding-left:6px; color:var(--ink); }
+  .heatmap-table tr.focus-row td.yr{ color:var(--olive-dark); }
   .subsection-label:first-of-type{ border-top:none; padding-top:0; }
 
   .foot{ text-align:center; font-size:11px; color:var(--grey-soft); margin-top:34px; }
@@ -233,14 +240,14 @@
 
     <div class="chart-grid even">
       <div class="card card-pad">
-        <div class="card-title">Average unit rate</div>
+        <div class="card-title" id="p2-rate-title">Average unit rate</div>
         <div class="card-cap" id="p2-rate-cap">PHP per unit, by year</div>
         <div class="chart-h tall" id="chart-product-rate"></div>
       </div>
       <div class="card card-pad">
-        <div class="card-title">Year-by-year detail</div>
-        <div class="card-cap">No monthly breakdown in source data</div>
-        <div class="tbl-scroll"><table id="p2-table"></table></div>
+        <div class="card-title" id="p2-detail-title">Year-by-year detail</div>
+        <div class="card-cap" id="p2-detail-cap">No monthly breakdown in source data</div>
+        <div id="p2-detail-content"></div>
       </div>
     </div>
   </section>
@@ -487,9 +494,17 @@ function drawLineChart(containerId, {labels, series, valueFmt, area=false, legen
   const {svg, W, H} = initSvg(containerId);
   const isNarrow = W < 380;
   const leftPad = 48, rightPad = 12, topPad = 14;
-  const legendH = legend && series.length > 1 ? (isNarrow ? 34 : 22) : 0;
+  const plotW = W - leftPad - rightPad;
+
+  let legendItems = [], legendRows = 0;
+  if (legend && series.length > 1){
+    series.forEach(ser=>{ const label = isNarrow && ser.label.length > 12 ? ser.label.slice(0,10)+'…' : ser.label; legendItems.push({label, color:ser.color, bold:ser.bold, opacity: ser.opacity!==undefined?ser.opacity:1, w: 22 + label.length*5.6 + 10}); });
+    legendRows = 1; let rowX = leftPad; const maxX = leftPad + plotW;
+    legendItems.forEach(it=>{ if (rowX + it.w > maxX + 4){ legendRows++; rowX = leftPad; } rowX += it.w; });
+  }
+  const legendH = legendRows > 0 ? (legendRows * 17 + 18) : 0;
   const bottomPad = 24 + legendH;
-  const plotW = W - leftPad - rightPad, plotH = H - topPad - bottomPad;
+  const plotH = H - topPad - bottomPad;
   if (plotW <= 0 || plotH <= 0) return;
   const allVals = series.flatMap(s => s.data.filter(v => v !== null && v !== undefined));
   let minVal = Math.min(0, ...allVals), maxVal = Math.max(...allVals, 0);
@@ -547,16 +562,14 @@ function drawLineChart(containerId, {labels, series, valueFmt, area=false, legen
       }
     });
   });
-  if (legend && series.length > 1){
+  if (legendRows > 0){
     const legY = topPad + plotH + 34;
     let rowY = legY, rowX = leftPad; const maxX = leftPad + plotW;
-    series.forEach(ser=>{
-      const label = isNarrow && ser.label.length > 12 ? ser.label.slice(0,10)+'…' : ser.label;
-      const w = 22 + label.length*5.6 + 10;
-      if (rowX + w > maxX + 4){ rowX = leftPad; rowY += 16; }
-      svg.appendChild(el('line', {x1:rowX, x2:rowX+14, y1:rowY-3, y2:rowY-3, stroke:ser.color, 'stroke-width':ser.bold?3:1.75, opacity: ser.opacity!==undefined?ser.opacity:1}));
-      svg.appendChild(el('text', {x:rowX+19, y:rowY, 'font-size':10.5, fill:C.grey}, label));
-      rowX += w;
+    legendItems.forEach(it=>{
+      if (rowX + it.w > maxX + 4){ rowX = leftPad; rowY += 17; }
+      svg.appendChild(el('line', {x1:rowX, x2:rowX+14, y1:rowY-3, y2:rowY-3, stroke:it.color, 'stroke-width':it.bold?3:1.75, opacity: it.opacity}));
+      svg.appendChild(el('text', {x:rowX+19, y:rowY, 'font-size':10.5, fill:C.grey}, it.label));
+      rowX += it.w;
     });
   }
 }
@@ -612,6 +625,8 @@ const CUSTOMERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vREtg
 const SHEET_ID = "1-Rukist0OUfGXhqxmxhOcdgoH9VvDVyL";
 const PRODUCTS_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=418554931`;
 const CUSTOMERS_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1559150069`;
+const MONTHLY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vREtg7WtbNmL0HJVjqK_n35EKvyJgo-FSX87yecqLIffYK8ijygYCK7DuqXD_YZGw/pub?gid=1256764504&single=true&output=csv";
+const MONTHLY_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1256764504`;
 
 async function fetchCSVOnce(url){
   const res = await fetch(url, {cache:"no-store"});
@@ -691,6 +706,64 @@ function parseCustomers(rows){
   }
   return items;
 }
+
+/* ---- Monthly "MAIN PRODUCTS" sheet parser ----
+   Layout: stacked mini-tables per product (grey banner row = product name,
+   yellow banner row = metric name, then a JAN..DEC header row, then one
+   data row per year). We scan generically rather than hardcoding row
+   numbers, so it survives rows being added/removed on the sheet. */
+const MONTH_NAMES = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHLY_PRODUCT_BANNERS = ['HATCHING EGGS','MARKET HOGS','CATTLE'];
+
+function parseMainProductsMonthly(rows){
+  const blocks = {};
+  let currentProduct = null, currentMetric = null, monthCols = null;
+  for(let r=0;r<rows.length;r++){
+    const row = rows[r];
+    if(!row) continue;
+    const nonEmpty = [];
+    row.forEach((cell,c)=>{ const s=cellStr(cell); if(s) nonEmpty.push({c, s}); });
+    if(nonEmpty.length===0) continue;
+
+    if(nonEmpty.length===1){
+      const label = nonEmpty[0].s.toUpperCase();
+      if(MONTHLY_PRODUCT_BANNERS.includes(label)){
+        currentProduct = label; currentMetric = null; monthCols = null;
+        if(!blocks[currentProduct]) blocks[currentProduct] = {};
+        continue;
+      }
+      if(currentProduct){
+        currentMetric = label; monthCols = null;
+        if(!blocks[currentProduct][currentMetric]) blocks[currentProduct][currentMetric] = {};
+      }
+      continue;
+    }
+
+    if(MONTH_NAMES.includes(nonEmpty[0].s.toUpperCase())){
+      monthCols = [];
+      nonEmpty.forEach(({c,s})=>{ const mi = MONTH_NAMES.indexOf(s.toUpperCase()); if(mi>=0) monthCols.push({c, month:mi}); });
+      continue;
+    }
+
+    const yearMatch = nonEmpty[0].s.match(/^(20\d{2})$/);
+    if(yearMatch && monthCols && currentProduct && currentMetric){
+      const year = yearMatch[1];
+      if(!blocks[currentProduct][currentMetric][year]) blocks[currentProduct][currentMetric][year] = {};
+      monthCols.forEach(({c,month})=>{ blocks[currentProduct][currentMetric][year][month] = cellNum(row[c]); });
+    }
+  }
+  return blocks;
+}
+function monthlyBlockKeyFor(productName){
+  const up = (productName||'').toUpperCase();
+  if(up.includes('EGG')) return 'HATCHING EGGS';
+  if(up.includes('CATTLE')) return 'CATTLE';
+  if(up.includes('HOG') || up.includes('LECHON') || up.includes('FINAL PRODUCT')) return 'MARKET HOGS';
+  return null;
+}
+function monthlyQtyMetricFor(blockKey){ return blockKey==='HATCHING EGGS' ? 'SALES IN PCS' : 'QUANTITY (HEADS)'; }
+const MONTHLY_AMOUNT_METRIC = 'SALES IN PESO';
 
 let DATA = { products:[], customers:[], years:[], categories:[], catColor:{} };
 
@@ -780,6 +853,14 @@ function initTier1(){
 /* ======================================================================
    TIER 2 — MAIN PRODUCTS
    ====================================================================== */
+function heatColor(v, maxV){
+  if(!v || maxV<=0) return '#f0f1ea';
+  const t = Math.min(1, v/maxV);
+  const light=[230,236,204], dark=[74,102,0];
+  const rgb = light.map((c,i)=> Math.round(c + (dark[i]-c)*t));
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
 function initTier2(){
   const mains = DATA.products.filter(p=>p.category.toUpperCase().includes('MAIN PRODUCT'));
   const years = DATA.years;
@@ -808,6 +889,29 @@ function initTier2(){
     const rateGrowth = (prevY!=null && rates[focusIdx-1] && rates[focusIdx]) ? ((rates[focusIdx]-rates[focusIdx-1])/rates[focusIdx-1]*100) : null;
     const allTimeRevenue = amts.reduce((a,b)=>a+b,0);
 
+    // ---- Monthly detail (if the MAIN PRODUCTS monthly sheet has this product) ----
+    const blockKey = monthlyBlockKeyFor(p.product);
+    const block = blockKey ? (DATA.monthlyMain||{})[blockKey] : null;
+    const qtyMetric = blockKey ? monthlyQtyMetricFor(blockKey) : null;
+    const monthlyQty = block ? (block[qtyMetric]||{}) : {};
+    const monthlyAmt = block ? (block[MONTHLY_AMOUNT_METRIC]||{}) : {};
+    const monthlyYears = years.filter(y=> monthlyQty[y] && Object.values(monthlyQty[y]).some(v=>v>0));
+    const hasMonthly = monthlyYears.length > 0;
+
+    // peak month for the focus year (fall back to nearest earlier year with data)
+    let peakYear = null, peakMonthIdx = null, peakVal = null;
+    if(hasMonthly){
+      peakYear = monthlyQty[focusY] ? focusY : monthlyYears[monthlyYears.length-1];
+      const md = monthlyQty[peakYear] || {};
+      let best=-1, bestIdx=null;
+      for(let m=0;m<12;m++){ const v=md[m]||0; if(v>best){ best=v; bestIdx=m; } }
+      if(bestIdx!==null && best>0){ peakMonthIdx = bestIdx; peakVal = best; }
+    }
+
+    const kpi4 = hasMonthly && peakMonthIdx!==null
+      ? {lbl:`Peak Month, ${peakYear}`, val:MONTH_ABBR[peakMonthIdx], delta:`· ${NUM(peakVal,{compact:true})} ${unit}`}
+      : {lbl:'All-Time Revenue', val:PHP(allTimeRevenue,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`};
+
     document.getElementById('p2-kpis').innerHTML = `
       <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">${focusY} Volume (${unit})</div><div class="val num-font">${NUM(qtys[focusIdx],{compact:true})}</div>
         <div class="delta ${qtyGrowth>=0?'up':'down'}">${qtyGrowth==null?'· first year on record':(qtyGrowth>=0?'▲ ':'▼ ')+PCT(qtyGrowth)+' vs '+prevY}</div></div>
@@ -815,21 +919,73 @@ function initTier2(){
         <div class="delta ${pesoGrowth>=0?'up':'down'}">${pesoGrowth==null?'· first year on record':(pesoGrowth>=0?'▲ ':'▼ ')+PCT(pesoGrowth)+' vs '+prevY}</div></div>
       <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">${focusY} Avg. Rate</div><div class="val num-font">${rates[focusIdx]?('₱'+rates[focusIdx].toFixed(2)):'—'}</div>
         <div class="delta ${rateGrowth>=0?'up':'down'}">${rateGrowth==null?'· n/a':(rateGrowth>=0?'▲ ':'▼ ')+PCT(rateGrowth)+' vs '+prevY}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">All-Time Revenue</div><div class="val num-font">${PHP(allTimeRevenue,{compact:true})}</div>
-        <div class="delta">· ${years[0]}–${years[years.length-1]}</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">${kpi4.lbl}</div><div class="val num-font">${kpi4.val}</div>
+        <div class="delta">${kpi4.delta}</div></div>
     `;
 
     document.getElementById('p2-value-cap').textContent = 'Total PHP per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
-    document.getElementById('p2-qty-title').textContent = `Annual volume (${unit})`;
-    document.getElementById('p2-qty-cap').textContent = 'Units per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
-    document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (currentYear!=='ALL' ? `, ${focusY} bold` : '');
-
     drawBarChart('chart-product-annual', { labels:years, series:[{label:'Sales value', color:C.oliveDark, data:amts}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:focusIdx });
-    drawLineChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, bold:true, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
-    drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
-    document.getElementById('p2-table').innerHTML = `<thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
-      <tbody>${years.map((y,i)=>`<tr ${i===focusIdx?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody>`;
+    if(hasMonthly){
+      // ---- Top-left: real monthly overlay across years ----
+      document.getElementById('p2-qty-title').textContent = `Monthly ${unit.toLowerCase()} by year`;
+      document.getElementById('p2-qty-cap').textContent = `${titleCase(p.product)} — overlaid across ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
+      drawLineChart('chart-product-qty', {
+        labels: MONTH_ABBR,
+        series: monthlyYears.map(y=>({
+          label: y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY,
+          opacity: y===focusY ? 1 : 0.55, showPoints: y===focusY,
+          data: MONTH_ABBR.map((_,mi)=> (monthlyQty[y]||{})[mi] ?? null)
+        })),
+        valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), legend:true
+      });
+
+      // ---- Bottom-left: monthly avg rate overlay ----
+      document.getElementById('p2-rate-title').textContent = 'Average unit rate';
+      document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — monthly average price (PHP), overlaid by year`;
+      drawLineChart('chart-product-rate', {
+        labels: MONTH_ABBR,
+        series: monthlyYears.map(y=>{
+          const qd = monthlyQty[y]||{}, ad = monthlyAmt[y]||{};
+          return { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY,
+            data: MONTH_ABBR.map((_,mi)=> qd[mi] ? (ad[mi]||0)/qd[mi] : null) };
+        }),
+        valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), legend:true
+      });
+
+      // ---- Bottom-right: seasonality heatmap ----
+      document.getElementById('p2-detail-title').textContent = 'Seasonality heatmap';
+      document.getElementById('p2-detail-cap').textContent = `Monthly ${unit.toLowerCase()} intensity by year`;
+      let maxCell = 0;
+      monthlyYears.forEach(y=> MONTH_ABBR.forEach((_,mi)=>{ const v=(monthlyQty[y]||{})[mi]||0; if(v>maxCell) maxCell=v; }));
+      let hm = '<div class="tbl-scroll"><table class="heatmap-table"><thead><tr><th class="yr"></th>' + MONTH_ABBR.map(m=>`<th>${m}</th>`).join('') + '</tr></thead><tbody>';
+      monthlyYears.forEach(y=>{
+        hm += `<tr class="${y===focusY?'focus-row':''}"><td class="yr">${y}</td>`;
+        MONTH_ABBR.forEach((_,mi)=>{
+          const v = (monthlyQty[y]||{})[mi] || 0;
+          const bg = heatColor(v, maxCell);
+          const light = v/maxCell < 0.55;
+          hm += `<td style="background:${bg};color:${v? (light?'#333':'#fff8f0') : '#b8b8ae'};">${v?NUM(v,{compact:true}):'—'}</td>`;
+        });
+        hm += '</tr>';
+      });
+      hm += '</tbody></table></div>';
+      document.getElementById('p2-detail-content').innerHTML = hm;
+    } else {
+      // ---- Fallback: no monthly source for this product, annual-only view ----
+      document.getElementById('p2-qty-title').textContent = `Annual volume (${unit})`;
+      document.getElementById('p2-qty-cap').textContent = 'Units per year' + (currentYear!=='ALL' ? ` — ${focusY} bold` : '');
+      drawLineChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, bold:true, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
+
+      document.getElementById('p2-rate-title').textContent = 'Average unit rate';
+      document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (currentYear!=='ALL' ? `, ${focusY} bold` : '');
+      drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
+
+      document.getElementById('p2-detail-title').textContent = 'Year-by-year detail';
+      document.getElementById('p2-detail-cap').textContent = 'No monthly breakdown in source data for this product';
+      document.getElementById('p2-detail-content').innerHTML = `<div class="tbl-scroll"><table><thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
+        <tbody>${years.map((y,i)=>`<tr ${i===focusIdx?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody></table></div>`;
+    }
   }
   registerChart(render);
   render();
@@ -1046,6 +1202,16 @@ async function loadData(){
     const yset = new Set(); DATA.products.forEach(p=>Object.keys(p.years).forEach(y=>{ if(y) yset.add(y); }));
     DATA.years = Array.from(yset).sort();
     buildCategoryPalette();
+
+    // Monthly detail sheet is optional/supplementary — if it fails to load,
+    // the rest of the dashboard still works fine on annual data alone.
+    try{
+      const monthlyRows = await fetchCSV(MONTHLY_CSV_URL, MONTHLY_CSV_URL_FALLBACK);
+      DATA.monthlyMain = parseMainProductsMonthly(monthlyRows);
+    }catch(mErr){
+      console.warn('Monthly product sheet unavailable:', mErr);
+      DATA.monthlyMain = {};
+    }
 
     document.getElementById('app').style.display='block';
     document.getElementById('loadingBanner').style.display='none';
