@@ -53,7 +53,8 @@
   .hdr .sync button:hover{ background:rgba(141,182,0,0.15); }
 
   /* ---- quick nav ---- */
-  .qnav-wrap{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+  .qnav-wrap{ background:var(--card); border-bottom:1px solid var(--line); }
+  .sticky-top{ position:sticky; top:0; z-index:100; }
   .qnav{ max-width:1200px; margin:0 auto; padding:10px 20px; display:flex; gap:8px; flex-wrap:wrap; }
 
   /* ---- main ---- */
@@ -145,6 +146,7 @@
 </head>
 <body>
 
+<div class="sticky-top">
 <header class="hdr">
   <div class="hdr-inner">
     <div class="eyebrow">M. Montesclaros Farms Inc. — Sayre Highway, Hagkol</div>
@@ -165,6 +167,8 @@
     <button class="btn" data-tier="t4">4. Customers</button>
   </nav>
 </div>
+</div>
+
 
 <div id="loadingBanner" class="loading-banner"><span class="spinner"></span> Pulling live data from the Google Sheet…</div>
 <div id="errorBanner" class="error-banner" style="display:none;"></div>
@@ -807,7 +811,7 @@ function initTier2(){
     document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (currentYear!=='ALL' ? `, ${focusY} bold` : '');
 
     drawBarChart('chart-product-annual', { labels:years, series:[{label:'Sales value', color:C.oliveDark, data:amts}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:focusIdx });
-    drawBarChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), legend:false, highlightIndex:focusIdx });
+    drawLineChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, bold:true, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
     drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
     document.getElementById('p2-table').innerHTML = `<thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
@@ -1029,6 +1033,9 @@ async function loadData(){
     DATA.years = Array.from(yset).sort();
     buildCategoryPalette();
 
+    document.getElementById('app').style.display='block';
+    document.getElementById('loadingBanner').style.display='none';
+
     if(!initialized){
       initTier1(); initTier2(); initTier3(); initTier4();
       initialized = true;
@@ -1036,9 +1043,9 @@ async function loadData(){
       CHART_REGISTRY.length = 0;
       initTier1(); initTier2(); initTier3(); initTier4();
     }
+    // safety re-render on next frame, in case layout hadn't fully settled yet
+    requestAnimationFrame(()=> CHART_REGISTRY.forEach(fn=>fn()));
 
-    document.getElementById('app').style.display='block';
-    document.getElementById('loadingBanner').style.display='none';
     const now = new Date();
     document.getElementById('syncText').textContent = 'Synced ' + now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
   }catch(err){
