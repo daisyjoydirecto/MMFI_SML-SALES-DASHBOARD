@@ -827,7 +827,7 @@ function unitLabel(productName){
 function initTier1(){
   const years = DATA.years;
   const lastIdx = years.length-1;
-  document.getElementById('hdr-sub').textContent = `Overview · Main Products · MCP & By-Products · Customers — ${years[0]}–${years[lastIdx]}`;
+  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department Performance — ${years[0]}–${years[lastIdx]}`;
 
   let yearFilter='ALL';
   makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
