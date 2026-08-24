@@ -656,11 +656,20 @@ const MONTHLY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vREtg7W
 const MONTHLY_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1256764504`;
 
 async function fetchCSVOnce(url){
-  const res = await fetch(url, {cache:"no-store"});
-  if(!res.ok) throw new Error("HTTP "+res.status);
-  const text = await res.text();
-  if(text.trim().startsWith("<")) throw new Error("Got HTML instead of CSV");
-  return Papa.parse(text.trim(), {skipEmptyLines:false}).data;
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), 12000); // don't hang forever if the request stalls
+  try{
+    const res = await fetch(url, {cache:"no-store", signal:controller.signal});
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const text = await res.text();
+    if(text.trim().startsWith("<")) throw new Error("Got HTML instead of CSV");
+    return Papa.parse(text.trim(), {skipEmptyLines:false}).data;
+  }catch(err){
+    if(err.name === 'AbortError') throw new Error('Request timed out');
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
 }
 async function fetchCSV(primaryUrl, fallbackUrl){
   try{ return await fetchCSVOnce(primaryUrl); }
@@ -1452,6 +1461,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    alert(`Downloaded — offline copy includes ${DATA.products.length} product rows and ${DATA.customers.length} customer rows, embedded directly in the file. It should open instantly with no "Connecting" step.`);
   }catch(err){
     console.error('Download failed:', err);
     alert("Couldn't prepare the download. Try again, or use your browser's Save Page As option instead.");
