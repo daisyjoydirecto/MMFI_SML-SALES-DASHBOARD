@@ -189,8 +189,6 @@
       <span class="sdot" id="syncDot"></span><span id="syncText">Connecting to sheet…</span>
       <button id="refreshBtn">↻ Refresh data</button>
       <button id="downloadBtn">⇩ Download HTML</button>
-      <button id="offlineBtn">⇩ Offline Copy</button>
-      <span id="staticNotice" style="display:none; color:var(--grey-soft);">This is a static, offline copy — no live connection to Google Sheets.</span>
     </div>
   </div>
 </header>
@@ -1340,31 +1338,6 @@ async function loadData(){
   document.getElementById('syncDot').classList.remove('err');
   document.getElementById('syncText').textContent = 'Connecting to sheet…';
   try{
-    // Offline-copy downloads carry their data baked in as a static snapshot —
-    // if one is present, use it directly and skip the network entirely.
-    // This is what lets that file work fully offline / opened by double-click.
-    const snapshotEl = document.getElementById('dashboard-data-snapshot');
-    if(snapshotEl){
-      let snap;
-      try{ snap = JSON.parse(snapshotEl.textContent); }
-      catch(parseErr){ console.warn('Snapshot data was present but unreadable, falling back to live fetch:', parseErr); snap = null; }
-      if(snap){
-        DATA.products = snap.products||[];
-        DATA.customers = snap.customers||[];
-        DATA.monthlyMain = snap.monthlyMain||{};
-        finishLoad();
-        document.getElementById('app').style.display='block';
-        document.getElementById('loadingBanner').style.display='none';
-        const snapDate = snap.snapshotAt ? new Date(snap.snapshotAt) : null;
-        document.getElementById('syncDot').style.background = 'var(--olive)';
-        document.getElementById('syncText').textContent = 'Offline copy' + (snapDate ? ' · as of ' + snapDate.toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'}) : '');
-        document.getElementById('refreshBtn').style.display = 'none';
-        document.getElementById('downloadBtn').style.display = 'none';
-        document.getElementById('offlineBtn').style.display = 'none';
-        document.getElementById('staticNotice').style.display = 'inline';
-        return;
-      }
-    }
     await ensurePapa();
     const [prodRows, custRows] = await Promise.all([ fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK), fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK) ]);
     DATA.products = parseProducts(prodRows);
@@ -1438,66 +1411,6 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   }catch(err){
     console.error('Download failed:', err);
     alert("Couldn't prepare the download. Try again, or use your browser's Save Page As option instead.");
-  }finally{
-    btn.textContent = DEFAULT_LABEL;
-    btn.disabled = false;
-  }
-});
-
-document.getElementById('offlineBtn').addEventListener('click', async ()=>{
-  const btn = document.getElementById('offlineBtn');
-  const DEFAULT_LABEL = '⇩ Offline Copy';
-
-  if(btn.disabled) return; // guard against double-click races
-  if(!DATA.products || DATA.products.length===0){
-    alert("Data hasn't finished syncing yet — wait for it to load, then try again.");
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '⇩ Preparing…';
-  try{
-    // Build from the current live DOM — guaranteed to exist, and reflects
-    // the actual current page.
-    let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-
-    // Remove any snapshot tag already present (e.g. re-saving an offline
-    // copy from within an offline copy), then bake in a fresh one with the
-    // data currently loaded in memory. The resulting file reads from this
-    // embedded JSON instead of fetching Google Sheets — no network, no
-    // file:// restrictions, opens fine by double-click for anyone.
-    html = html.replace(/<script id="dashboard-data-snapshot"[^>]*>[\s\S]*?<\/script>\s*/i, '');
-    const snapshot = {
-      products: DATA.products,
-      customers: DATA.customers,
-      monthlyMain: DATA.monthlyMain || {},
-      snapshotAt: new Date().toISOString()
-    };
-    const snapshotTag = `<script id="dashboard-data-snapshot" type="application/json">${JSON.stringify(snapshot).replace(/</g,'\\u003c')}<\/script>\n`;
-    const marker = '<div id="chart-tooltip"></div>';
-    const idx = html.indexOf(marker);
-    if(idx>=0){
-      const insertAt = idx + marker.length;
-      html = html.slice(0,insertAt) + '\n' + snapshotTag + html.slice(insertAt);
-    } else {
-      html = html.replace('</body>', snapshotTag + '</body>');
-    }
-    if(!html.includes('id="dashboard-data-snapshot"')){
-      throw new Error('Could not embed snapshot data into the file');
-    }
-
-    const blob = new Blob([html], {type:'text/html'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mmfi-sales-dashboard-offline.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }catch(err){
-    console.error('Offline copy failed:', err);
-    alert("Couldn't prepare the offline copy. Try again, or use your browser's Save Page As option instead.");
   }finally{
     btn.textContent = DEFAULT_LABEL;
     btn.disabled = false;
