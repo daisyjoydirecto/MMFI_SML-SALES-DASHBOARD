@@ -184,7 +184,7 @@
   <div class="hdr-inner">
     <div class="eyebrow">M. Montesclaros Farms Inc. — Sayre Highway, Hagkol</div>
     <h1>Year-over-Year Sales Analysis</h1>
-    <div class="sub" id="hdr-sub">Sales Meat and Livestock Department's Performance</div>
+    <div class="sub" id="hdr-sub">Sales Meat and Livestock Department</div>
     <div class="sync">
       <span class="sdot" id="syncDot"></span><span id="syncText">Connecting to sheet…</span>
       <button id="refreshBtn">↻ Refresh data</button>
@@ -829,7 +829,7 @@ function unitLabel(productName){
 function initTier1(){
   const years = DATA.years;
   const lastIdx = years.length-1;
-  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department's Performance — ${years[0]}–${years[lastIdx]}`;
+  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department — ${years[0]}–${years[lastIdx]}`;
 
   let yearFilter='ALL';
   makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
@@ -1338,30 +1338,6 @@ async function loadData(){
   document.getElementById('syncDot').classList.remove('err');
   document.getElementById('syncText').textContent = 'Connecting to sheet…';
   try{
-    // Downloaded copies carry their data baked in as a static snapshot —
-    // if one is present, use it directly and skip the network entirely.
-    // This is what lets a downloaded file work fully offline / when
-    // opened by double-click, which live Google Sheets fetches cannot do.
-    const snapshotEl = document.getElementById('dashboard-data-snapshot');
-    if(snapshotEl){
-      let snap;
-      try{ snap = JSON.parse(snapshotEl.textContent); }
-      catch(parseErr){ console.warn('Snapshot data was present but unreadable, falling back to live fetch:', parseErr); snap = null; }
-      if(snap){
-        DATA.products = snap.products||[];
-        DATA.customers = snap.customers||[];
-        DATA.monthlyMain = snap.monthlyMain||{};
-        finishLoad();
-        document.getElementById('app').style.display='block';
-        document.getElementById('loadingBanner').style.display='none';
-        const snapDate = snap.snapshotAt ? new Date(snap.snapshotAt) : null;
-        document.getElementById('syncText').textContent = 'Static snapshot' + (snapDate ? ' · as of ' + snapDate.toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'}) : '');
-        document.getElementById('refreshBtn').style.display = 'none';
-        document.getElementById('downloadBtn').style.display = 'none';
-        return;
-      }
-    }
-
     await ensurePapa();
     const [prodRows, custRows] = await Promise.all([ fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK), fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK) ]);
     DATA.products = parseProducts(prodRows);
@@ -1406,52 +1382,28 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   const DEFAULT_LABEL = '⇩ Download HTML';
 
   if(btn.disabled) return; // guard against double-click races
-  if(!DATA.products || DATA.products.length===0){
-    alert("Data hasn't finished syncing yet — wait for it to load, then try downloading again.");
-    return;
-  }
 
   btn.disabled = true;
   btn.textContent = '⇩ Preparing…';
   try{
-    // Always build from the current live DOM — this is guaranteed to exist
-    // and reflects the actual current page, unlike fetching the page's own
-    // URL (which can behave inconsistently across hosts/caches).
-    let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-
-    // Strip any snapshot tag already present (e.g. if this itself is a
-    // downloaded copy being re-downloaded), then bake in a fresh one with
-    // the data currently loaded in memory. The downloaded file then reads
-    // from this embedded JSON instead of fetching Google Sheets, so it
-    // works fully offline and opens fine by double-click.
-    html = html.replace(/<script id="dashboard-data-snapshot"[^>]*>[\s\S]*?<\/script>\s*/i, '');
-    const snapshot = {
-      products: DATA.products,
-      customers: DATA.customers,
-      monthlyMain: DATA.monthlyMain || {},
-      snapshotAt: new Date().toISOString()
-    };
-    const snapshotTag = `<script id="dashboard-data-snapshot" type="application/json">${JSON.stringify(snapshot).replace(/</g,'\\u003c')}<\/script>\n`;
-    // Anchor on a plain, always-present element rather than matching
-    // script-tag text, which is more fragile to whitespace/attribute
-    // differences in serialized HTML.
-    const marker = '<div id="chart-tooltip"></div>';
-    const idx = html.indexOf(marker);
-    if(idx>=0){
-      const insertAt = idx + marker.length;
-      html = html.slice(0,insertAt) + '\n' + snapshotTag + html.slice(insertAt);
-    } else {
-      html = html.replace('</body>', snapshotTag + '</body>');
+    let html;
+    try{
+      // Prefer fetching the page's own served source — this keeps the
+      // live-fetching script intact, so the downloaded copy still syncs
+      // to Google Sheets when opened from a real web host.
+      const res = await fetch(window.location.href, {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      html = await res.text();
+    }catch(fetchErr){
+      // Fallback: serialize the current live DOM (works even if the fetch
+      // above is blocked for any reason).
+      html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     }
-    if(!html.includes('id="dashboard-data-snapshot"')){
-      throw new Error('Could not embed snapshot data into the file');
-    }
-
     const blob = new Blob([html], {type:'text/html'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mmfi-sales-dashboard-snapshot.html';
+    a.download = 'mmfi-sales-dashboard.html';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
