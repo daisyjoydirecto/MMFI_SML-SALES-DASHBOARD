@@ -827,7 +827,7 @@ function unitLabel(productName){
 function initTier1(){
   const years = DATA.years;
   const lastIdx = years.length-1;
-  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department's Performance : ${years[0]}–${years[lastIdx]}`;
+  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department's Performance — ${years[0]}–${years[lastIdx]}`;
 
   let yearFilter='ALL';
   makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
@@ -1428,7 +1428,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
       monthlyMain: DATA.monthlyMain || {},
       snapshotAt: new Date().toISOString()
     };
-    const snapshotTag = `<script id="dashboard-data-snapshot" type="application/json">${JSON.stringify(snapshot).replace(/</g,'\\u003c')}</script>\n`;
+    const snapshotTag = `<script id="dashboard-data-snapshot" type="application/json">${JSON.stringify(snapshot).replace(/</g,'\\u003c')}<\/script>\n`;
     const marker = '<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse';
     const idx = html.indexOf(marker);
     html = idx>=0 ? (html.slice(0,idx) + snapshotTag + html.slice(idx)) : html.replace('</body>', snapshotTag + '</body>');
