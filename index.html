@@ -1342,19 +1342,22 @@ async function loadData(){
     // opened by double-click, which live Google Sheets fetches cannot do.
     const snapshotEl = document.getElementById('dashboard-data-snapshot');
     if(snapshotEl){
-      const snap = JSON.parse(snapshotEl.textContent);
-      DATA.products = snap.products||[];
-      DATA.customers = snap.customers||[];
-      DATA.monthlyMain = snap.monthlyMain||{};
-      finishLoad();
-      document.getElementById('app').style.display='block';
-      document.getElementById('loadingBanner').style.display='none';
-      const snapDate = snap.snapshotAt ? new Date(snap.snapshotAt) : null;
-      document.getElementById('syncText').textContent = 'Static snapshot' + (snapDate ? ' · as of ' + snapDate.toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'}) : '');
-      const rb = document.getElementById('refreshBtn');
-      rb.textContent = '⚠ Static copy (not live)';
-      rb.onclick = (e)=>{ e.preventDefault(); alert('This is a static, offline snapshot — it has no live connection to Google Sheets to refresh. To get current data, open the live dashboard and download a fresh copy from there.'); };
-      return;
+      let snap;
+      try{ snap = JSON.parse(snapshotEl.textContent); }
+      catch(parseErr){ console.warn('Snapshot data was present but unreadable, falling back to live fetch:', parseErr); snap = null; }
+      if(snap){
+        DATA.products = snap.products||[];
+        DATA.customers = snap.customers||[];
+        DATA.monthlyMain = snap.monthlyMain||{};
+        finishLoad();
+        document.getElementById('app').style.display='block';
+        document.getElementById('loadingBanner').style.display='none';
+        const snapDate = snap.snapshotAt ? new Date(snap.snapshotAt) : null;
+        document.getElementById('syncText').textContent = 'Static snapshot' + (snapDate ? ' · as of ' + snapDate.toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'}) : '');
+        document.getElementById('refreshBtn').style.display = 'none';
+        document.getElementById('downloadBtn').style.display = 'none';
+        return;
+      }
     }
 
     await ensurePapa();
@@ -1407,14 +1410,10 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
 
   btn.textContent = '⇩ Preparing…';
   try{
-    let html;
-    try{
-      const res = await fetch(window.location.href, {cache:'no-store'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      html = await res.text();
-    }catch(fetchErr){
-      html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-    }
+    // Always build from the current live DOM — this is guaranteed to exist
+    // and reflects the actual current page, unlike fetching the page's own
+    // URL (which can behave inconsistently across hosts/caches).
+    let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
 
     // Strip any snapshot tag already present (e.g. if this itself is a
     // downloaded copy being re-downloaded), then bake in a fresh one with
@@ -1429,9 +1428,20 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
       snapshotAt: new Date().toISOString()
     };
     const snapshotTag = `<script id="dashboard-data-snapshot" type="application/json">${JSON.stringify(snapshot).replace(/</g,'\\u003c')}<\/script>\n`;
-    const marker = '<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse';
+    // Anchor on a plain, always-present element rather than matching
+    // script-tag text, which is more fragile to whitespace/attribute
+    // differences in serialized HTML.
+    const marker = '<div id="chart-tooltip"></div>';
     const idx = html.indexOf(marker);
-    html = idx>=0 ? (html.slice(0,idx) + snapshotTag + html.slice(idx)) : html.replace('</body>', snapshotTag + '</body>');
+    if(idx>=0){
+      const insertAt = idx + marker.length;
+      html = html.slice(0,insertAt) + '\n' + snapshotTag + html.slice(insertAt);
+    } else {
+      html = html.replace('</body>', snapshotTag + '</body>');
+    }
+    if(!html.includes('id="dashboard-data-snapshot"')){
+      throw new Error('Could not embed snapshot data into the file');
+    }
 
     const blob = new Blob([html], {type:'text/html'});
     const url = URL.createObjectURL(blob);
