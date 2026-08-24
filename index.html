@@ -51,6 +51,8 @@
   .hdr .sync .sdot.err{ background:#c97a5c; }
   .hdr .sync button{ background:transparent; border:1px solid rgba(141,182,0,0.5); color:#f2f2f2; font-family:'Courier New',monospace; font-size:10px; padding:2px 7px; border-radius:3px; cursor:pointer; }
   .hdr .sync button:hover{ background:rgba(141,182,0,0.15); }
+  .hdr .sync button:disabled{ opacity:0.55; cursor:default; }
+  .hdr .sync button:disabled:hover{ background:transparent; }
 
   /* ---- quick nav ---- */
   .qnav-wrap{ background:var(--card); border-bottom:1px solid var(--line); }
@@ -1401,13 +1403,15 @@ document.getElementById('refreshBtn').addEventListener('click', loadData);
 
 document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('downloadBtn');
-  const originalText = btn.textContent;
+  const DEFAULT_LABEL = '⇩ Download HTML';
 
+  if(btn.disabled) return; // guard against double-click races
   if(!DATA.products || DATA.products.length===0){
     alert("Data hasn't finished syncing yet — wait for it to load, then try downloading again.");
     return;
   }
 
+  btn.disabled = true;
   btn.textContent = '⇩ Preparing…';
   try{
     // Always build from the current live DOM — this is guaranteed to exist
@@ -1456,7 +1460,8 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
     console.error('Download failed:', err);
     alert("Couldn't prepare the download. Try again, or use your browser's Save Page As option instead.");
   }finally{
-    btn.textContent = originalText;
+    btn.textContent = DEFAULT_LABEL;
+    btn.disabled = false;
   }
 });
 loadData();
