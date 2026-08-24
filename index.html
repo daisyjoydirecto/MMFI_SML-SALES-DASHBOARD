@@ -47,7 +47,7 @@
   .hdr h1{ font-size:19px; font-weight:700; letter-spacing:.01em; margin:0; }
   .hdr .sub{ font-size:11.5px; color:var(--grey-soft); margin-top:2px; }
   .hdr .sync{ font-size:10.5px; color:var(--olive); margin-top:6px; font-family:'Courier New',monospace; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .hdr .sync .sdot{ width:8px; height:8px; border-radius:60%; background:var(--olive); display:inline-block; }
+  .hdr .sync .sdot{ width:6px; height:6px; border-radius:50%; background:var(--olive); display:inline-block; }
   .hdr .sync .sdot.err{ background:#c97a5c; }
   .hdr .sync button{ background:transparent; border:1px solid rgba(141,182,0,0.5); color:#f2f2f2; font-family:'Courier New',monospace; font-size:10px; padding:2px 7px; border-radius:3px; cursor:pointer; }
   .hdr .sync button:hover{ background:rgba(141,182,0,0.15); }
@@ -182,7 +182,7 @@
   <div class="hdr-inner">
     <div class="eyebrow">M. Montesclaros Farms Inc. — Sayre Highway, Hagkol</div>
     <h1>Year-over-Year Sales Analysis</h1>
-    <div class="sub" id="hdr-sub">Sales Meat and Livestock Department</div>
+    <div class="sub" id="hdr-sub">Sales Meat and Livestock Department's Performance</div>
     <div class="sync">
       <span class="sdot" id="syncDot"></span><span id="syncText">Connecting to sheet…</span>
       <button id="refreshBtn">↻ Refresh data</button>
@@ -827,7 +827,7 @@ function unitLabel(productName){
 function initTier1(){
   const years = DATA.years;
   const lastIdx = years.length-1;
-  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department Performance — ${years[0]}–${years[lastIdx]}`;
+  document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department's Performance : ${years[0]}–${years[lastIdx]}`;
 
   let yearFilter='ALL';
   makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
@@ -1314,19 +1314,53 @@ document.querySelectorAll('.qnav .btn').forEach(btn=>{
 
 /* ---------------- load pipeline ---------------- */
 let initialized = false;
+function finishLoad(){
+  const yset = new Set(); DATA.products.forEach(p=>Object.keys(p.years).forEach(y=>{ if(y) yset.add(y); }));
+  DATA.years = Array.from(yset).sort();
+  buildCategoryPalette();
+
+  if(!initialized){
+    initTier1(); initTier2(); initTier3(); initTier4();
+    initialized = true;
+  } else {
+    CHART_REGISTRY.length = 0;
+    initTier1(); initTier2(); initTier3(); initTier4();
+  }
+  requestAnimationFrame(()=> CHART_REGISTRY.forEach(fn=>fn()));
+  watchAppSizing();
+}
+
 async function loadData(){
   document.getElementById('loadingBanner').style.display='flex';
   document.getElementById('errorBanner').style.display='none';
   document.getElementById('syncDot').classList.remove('err');
   document.getElementById('syncText').textContent = 'Connecting to sheet…';
   try{
+    // Downloaded copies carry their data baked in as a static snapshot —
+    // if one is present, use it directly and skip the network entirely.
+    // This is what lets a downloaded file work fully offline / when
+    // opened by double-click, which live Google Sheets fetches cannot do.
+    const snapshotEl = document.getElementById('dashboard-data-snapshot');
+    if(snapshotEl){
+      const snap = JSON.parse(snapshotEl.textContent);
+      DATA.products = snap.products||[];
+      DATA.customers = snap.customers||[];
+      DATA.monthlyMain = snap.monthlyMain||{};
+      finishLoad();
+      document.getElementById('app').style.display='block';
+      document.getElementById('loadingBanner').style.display='none';
+      const snapDate = snap.snapshotAt ? new Date(snap.snapshotAt) : null;
+      document.getElementById('syncText').textContent = 'Static snapshot' + (snapDate ? ' · as of ' + snapDate.toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'}) : '');
+      const rb = document.getElementById('refreshBtn');
+      rb.textContent = '⚠ Static copy (not live)';
+      rb.onclick = (e)=>{ e.preventDefault(); alert('This is a static, offline snapshot — it has no live connection to Google Sheets to refresh. To get current data, open the live dashboard and download a fresh copy from there.'); };
+      return;
+    }
+
     await ensurePapa();
     const [prodRows, custRows] = await Promise.all([ fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK), fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK) ]);
     DATA.products = parseProducts(prodRows);
     DATA.customers = parseCustomers(custRows);
-    const yset = new Set(); DATA.products.forEach(p=>Object.keys(p.years).forEach(y=>{ if(y) yset.add(y); }));
-    DATA.years = Array.from(yset).sort();
-    buildCategoryPalette();
 
     // Monthly detail sheet is optional/supplementary — if it fails to load,
     // the rest of the dashboard still works fine on annual data alone.
@@ -1338,20 +1372,10 @@ async function loadData(){
       DATA.monthlyMain = {};
     }
 
+    finishLoad();
+
     document.getElementById('app').style.display='block';
     document.getElementById('loadingBanner').style.display='none';
-
-    if(!initialized){
-      initTier1(); initTier2(); initTier3(); initTier4();
-      initialized = true;
-    } else {
-      CHART_REGISTRY.length = 0;
-      initTier1(); initTier2(); initTier3(); initTier4();
-    }
-    // safety re-render on next frame, in case layout hadn't fully settled yet
-    requestAnimationFrame(()=> CHART_REGISTRY.forEach(fn=>fn()));
-    watchAppSizing();
-
     const now = new Date();
     document.getElementById('syncText').textContent = 'Synced ' + now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
   }catch(err){
@@ -1361,7 +1385,9 @@ async function loadData(){
     document.getElementById('syncText').textContent = 'Sync failed';
     const eb = document.getElementById('errorBanner');
     eb.style.display='flex';
-    if(err.message && err.message.includes('load')){
+    if(window.location.protocol === 'file:'){
+      eb.textContent = "This file was opened directly from your computer (a file:// address). Google Sheets blocks live data requests from local files as a security measure — this isn't fixable in the code. Upload this HTML file to a real web host (e.g. GitHub Pages) to see live data; opening it by double-click will always show this message.";
+    } else if(err.message && err.message.includes('load')){
       eb.textContent = "Couldn't load the CSV parser library (" + err.message + "). This is usually a firewall, ad-blocker, or network security setting — try a different network or disable ad-blocking extensions for this page, then hit Refresh.";
     } else {
       eb.textContent = "Couldn't load live data from the Google Sheet (" + err.message + "). Make sure both tabs are still published to the web as CSV, then hit Refresh.";
@@ -1373,25 +1399,45 @@ document.getElementById('refreshBtn').addEventListener('click', loadData);
 document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('downloadBtn');
   const originalText = btn.textContent;
+
+  if(!DATA.products || DATA.products.length===0){
+    alert("Data hasn't finished syncing yet — wait for it to load, then try downloading again.");
+    return;
+  }
+
   btn.textContent = '⇩ Preparing…';
   try{
     let html;
     try{
-      // Prefer fetching the page's own served source — this keeps the
-      // live-fetching script intact, unlike a frozen snapshot of the DOM.
       const res = await fetch(window.location.href, {cache:'no-store'});
       if(!res.ok) throw new Error('HTTP '+res.status);
       html = await res.text();
     }catch(fetchErr){
-      // Fallback: serialize the current live DOM (works even on file:// or
-      // if the fetch is blocked, though it captures a static snapshot).
       html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     }
+
+    // Strip any snapshot tag already present (e.g. if this itself is a
+    // downloaded copy being re-downloaded), then bake in a fresh one with
+    // the data currently loaded in memory. The downloaded file then reads
+    // from this embedded JSON instead of fetching Google Sheets, so it
+    // works fully offline and opens fine by double-click.
+    html = html.replace(/<script id="dashboard-data-snapshot"[^>]*>[\s\S]*?<\/script>\s*/i, '');
+    const snapshot = {
+      products: DATA.products,
+      customers: DATA.customers,
+      monthlyMain: DATA.monthlyMain || {},
+      snapshotAt: new Date().toISOString()
+    };
+    const snapshotTag = `<script id="dashboard-data-snapshot" type="application/json">${JSON.stringify(snapshot).replace(/</g,'\\u003c')}</script>\n`;
+    const marker = '<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse';
+    const idx = html.indexOf(marker);
+    html = idx>=0 ? (html.slice(0,idx) + snapshotTag + html.slice(idx)) : html.replace('</body>', snapshotTag + '</body>');
+
     const blob = new Blob([html], {type:'text/html'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mmfi-sales-dashboard.html';
+    a.download = 'mmfi-sales-dashboard-snapshot.html';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
