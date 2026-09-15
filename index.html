@@ -1461,7 +1461,6 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    alert(`Downloaded — offline copy includes ${DATA.products.length} product rows and ${DATA.customers.length} customer rows, embedded directly in the file. It should open instantly with no "Connecting" step.`);
   }catch(err){
     console.error('Download failed:', err);
     alert("Couldn't prepare the download. Try again, or use your browser's Save Page As option instead.");
