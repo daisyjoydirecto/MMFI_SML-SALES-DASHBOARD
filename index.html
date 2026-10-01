@@ -248,6 +248,7 @@
     <div class="filters-block">
       <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
       <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
+      <div class="filter-row" id="p2-farm-row" style="display:none;"><span class="flabel">Farm:</span><div class="btnrow" id="p2-farm-pills"></div></div>
     </div>
 
     <div class="kpi-grid" id="p2-kpis"></div>
@@ -761,10 +762,16 @@ function parseCustomers(rows){
    Layout: stacked mini-tables per product (grey banner row = product name,
    yellow banner row = metric name, then a JAN..DEC header row, then one
    data row per year). We scan generically rather than hardcoding row
-   numbers, so it survives rows being added/removed on the sheet. */
+   numbers or product names, so it survives rows — and whole farms/products —
+   being added or removed on the sheet.
+   A lone-cell row is a METRIC banner if it matches the known fixed set of
+   metric names; otherwise it's treated as a new PRODUCT banner (grey row).
+   This is the robust way round: metric names are a small closed set, but
+   product/farm names are open-ended (e.g. a sheet owner adding a new farm
+   like "MAPAYAG - MARKET HOGS" shouldn't require a code change here). */
 const MONTH_NAMES = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const MONTHLY_PRODUCT_BANNERS = ['HATCHING EGGS','MARKET HOGS','CATTLE'];
+const MONTHLY_METRIC_BANNERS = ['QUANTITY (HEADS)','QUANTITY (KILOS)','SALES IN PCS','SALES IN PESO','AVERAGE RATE PER KILO','AVERAGE PRICE PER EGG'];
 
 function parseMainProductsMonthly(rows){
   const blocks = {};
@@ -778,7 +785,13 @@ function parseMainProductsMonthly(rows){
 
     if(nonEmpty.length===1){
       const label = nonEmpty[0].s.toUpperCase();
-      if(MONTHLY_PRODUCT_BANNERS.includes(label)){
+      if(/^(20\d{2})$/.test(label)){
+        // A year row with no month data yet (e.g. the current/future year before
+        // any months are filled in) — not a banner of any kind, just skip it.
+        continue;
+      }
+      if(!MONTHLY_METRIC_BANNERS.includes(label)){
+        // Not a known metric name and not a year row → a new product/farm banner.
         currentProduct = label; currentMetric = null; monthCols = null;
         if(!blocks[currentProduct]) blocks[currentProduct] = {};
         continue;
@@ -811,6 +824,24 @@ function monthlyBlockKeyFor(productName){
   if(up.includes('CATTLE')) return 'CATTLE';
   if(up.includes('HOG') || up.includes('LECHON') || up.includes('FINAL PRODUCT')) return 'MARKET HOGS';
   return null;
+}
+// Group the exact-banner-keyed blocks (e.g. "KINATE - MARKET HOGS", "MAPAYAG - MARKET HOGS")
+// by their coarse type, so a product with several farms/banners under the same
+// umbrella (e.g. "MARKET HOGS") can be browsed farm-by-farm.
+function groupMonthlyByType(monthlyMain){
+  const byType = {};
+  Object.keys(monthlyMain||{}).forEach(bannerKey=>{
+    const type = monthlyBlockKeyFor(bannerKey);
+    if(!type) return;
+    if(!byType[type]) byType[type] = {};
+    byType[type][bannerKey] = monthlyMain[bannerKey];
+  });
+  return byType;
+}
+function farmLabel(bannerKey){
+  // "KINATE - MARKET HOGS" -> "Kinate"; falls back to the full banner if there's no " - " split.
+  const parts = (bannerKey||'').split(' - ');
+  return titleCase(parts[0]);
 }
 function monthlyQtyMetricFor(blockKey){ return blockKey==='HATCHING EGGS' ? 'SALES IN PCS' : 'QUANTITY (HEADS)'; }
 const MONTHLY_AMOUNT_METRIC = 'SALES IN PESO';
@@ -949,10 +980,11 @@ function initTier2(){
   const years = DATA.years;
   let currentProduct = mains[0] && mains[0].product;
   let currentYear = 'ALL';
+  let currentFarm = null; // only used when the current product has >1 farm/banner in the monthly sheet
 
   document.getElementById('t2-sub').textContent = mains.map(p=>titleCase(p.product)).join(', ') + " — the company's core revenue lines";
 
-  makePills('p2-pills', mains.map(p=>({value:p.product,label:titleCase(p.product)})), currentProduct, v=>{ currentProduct=v; render(); });
+  makePills('p2-pills', mains.map(p=>({value:p.product,label:titleCase(p.product)})), currentProduct, v=>{ currentProduct=v; currentFarm=null; render(); });
   makePills('p2-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], currentYear, v=>{ currentYear=v; render(); });
 
   function render(){
@@ -971,7 +1003,26 @@ function initTier2(){
 
     // ---- Monthly detail (if the MAIN PRODUCTS monthly sheet has this product) ----
     const blockKey = monthlyBlockKeyFor(p.product);
-    const block = blockKey ? (DATA.monthlyMain||{})[blockKey] : null;
+    const farmBlocks = blockKey ? ((DATA.monthlyByType||{})[blockKey] || {}) : {};
+    const farmKeys = Object.keys(farmBlocks);
+    const farmRow = document.getElementById('p2-farm-row');
+    if(farmKeys.length > 1){
+      // More than one farm/banner feeds this product (e.g. Kinate & Mapayag under
+      // Market Hogs) — let the user pick which farm's monthly detail to view.
+      if(!currentFarm || !farmKeys.includes(currentFarm)){
+        // Default to whichever farm actually has sales recorded, preferring the one with the most.
+        currentFarm = farmKeys.slice().sort((a,b)=>{
+          const sum = k => Object.values((farmBlocks[k]['SALES IN PESO']||{})).reduce((s,yr)=>s+Object.values(yr).reduce((a,b)=>a+b,0),0);
+          return sum(b)-sum(a);
+        })[0];
+      }
+      farmRow.style.display = '';
+      makePills('p2-farm-pills', farmKeys.map(k=>({value:k,label:farmLabel(k)})), currentFarm, v=>{ currentFarm=v; render(); });
+    } else {
+      farmRow.style.display = 'none';
+      currentFarm = farmKeys[0] || null;
+    }
+    const block = currentFarm ? farmBlocks[currentFarm] : null;
     const qtyMetric = blockKey ? monthlyQtyMetricFor(blockKey) : null;
     const monthlyQty = block ? (block[qtyMetric]||{}) : {};
     const monthlyAmt = block ? (block[MONTHLY_AMOUNT_METRIC]||{}) : {};
@@ -1118,7 +1169,9 @@ function initTier2(){
       drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-detail-title').textContent = 'Year-by-year detail';
-      document.getElementById('p2-detail-cap').textContent = 'No monthly breakdown in source data for this product';
+      document.getElementById('p2-detail-cap').textContent = currentFarm && farmKeys.length>1
+        ? `No sales recorded yet for ${farmLabel(currentFarm)}`
+        : 'No monthly breakdown in source data for this product';
       document.getElementById('p2-detail-content').innerHTML = `<div class="tbl-scroll"><table><thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
         <tbody>${years.map((y,i)=>`<tr ${(!isAll && i===focusIdx)?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody></table></div>`;
     }
@@ -1329,6 +1382,7 @@ function finishLoad(){
   const yset = new Set(); DATA.products.forEach(p=>Object.keys(p.years).forEach(y=>{ if(y) yset.add(y); }));
   DATA.years = Array.from(yset).sort();
   buildCategoryPalette();
+  DATA.monthlyByType = groupMonthlyByType(DATA.monthlyMain);
 
   if(!initialized){
     initTier1(); initTier2(); initTier3(); initTier4();
