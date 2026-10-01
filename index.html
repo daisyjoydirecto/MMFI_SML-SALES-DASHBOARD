@@ -248,7 +248,6 @@
     <div class="filters-block">
       <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
       <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
-      <div class="filter-row" id="p2-farm-row" style="display:none;"><span class="flabel">Farm:</span><div class="btnrow" id="p2-farm-pills"></div></div>
     </div>
 
     <div class="kpi-grid" id="p2-kpis"></div>
@@ -843,6 +842,25 @@ function farmLabel(bannerKey){
   const parts = (bannerKey||'').split(' - ');
   return titleCase(parts[0]);
 }
+// Sums QUANTITY/SALES monthly figures across several farm banners of the same
+// type, for a product that doesn't name a specific farm (so its monthly view
+// should reflect all farms combined rather than picking just one).
+function combineMonthlyBlocks(blocks){
+  const out = {};
+  (blocks||[]).forEach(b=>{
+    if(!b) return;
+    Object.keys(b).forEach(metric=>{
+      if(!out[metric]) out[metric] = {};
+      Object.keys(b[metric]).forEach(year=>{
+        if(!out[metric][year]) out[metric][year] = {};
+        Object.keys(b[metric][year]).forEach(month=>{
+          out[metric][year][month] = (out[metric][year][month]||0) + (b[metric][year][month]||0);
+        });
+      });
+    });
+  });
+  return out;
+}
 function monthlyQtyMetricFor(blockKey){ return blockKey==='HATCHING EGGS' ? 'SALES IN PCS' : 'QUANTITY (HEADS)'; }
 const MONTHLY_AMOUNT_METRIC = 'SALES IN PESO';
 
@@ -980,11 +998,10 @@ function initTier2(){
   const years = DATA.years;
   let currentProduct = mains[0] && mains[0].product;
   let currentYear = 'ALL';
-  let currentFarm = null; // only used when the current product has >1 farm/banner in the monthly sheet
 
   document.getElementById('t2-sub').textContent = mains.map(p=>titleCase(p.product)).join(', ') + " — the company's core revenue lines";
 
-  makePills('p2-pills', mains.map(p=>({value:p.product,label:titleCase(p.product)})), currentProduct, v=>{ currentProduct=v; currentFarm=null; render(); });
+  makePills('p2-pills', mains.map(p=>({value:p.product,label:titleCase(p.product)})), currentProduct, v=>{ currentProduct=v; render(); });
   makePills('p2-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], currentYear, v=>{ currentYear=v; render(); });
 
   function render(){
@@ -1002,27 +1019,22 @@ function initTier2(){
     const totalAmt = amts.reduce((a,b)=>a+b,0);
 
     // ---- Monthly detail (if the MAIN PRODUCTS monthly sheet has this product) ----
+    // Farm selection is folded into the Product row itself: when a product name
+    // names its farm (e.g. "Kinate Live Final Product & Lechonon"), we match it
+    // straight to that farm's monthly banner — no separate Farm filter needed.
+    // If a product doesn't name a farm but multiple farm banners share its type,
+    // their monthly figures are combined into one view.
     const blockKey = monthlyBlockKeyFor(p.product);
-    const farmBlocks = blockKey ? ((DATA.monthlyByType||{})[blockKey] || {}) : {};
-    const farmKeys = Object.keys(farmBlocks);
-    const farmRow = document.getElementById('p2-farm-row');
-    if(farmKeys.length > 1){
-      // More than one farm/banner feeds this product (e.g. Kinate & Mapayag under
-      // Market Hogs) — let the user pick which farm's monthly detail to view.
-      if(!currentFarm || !farmKeys.includes(currentFarm)){
-        // Default to whichever farm actually has sales recorded, preferring the one with the most.
-        currentFarm = farmKeys.slice().sort((a,b)=>{
-          const sum = k => Object.values((farmBlocks[k]['SALES IN PESO']||{})).reduce((s,yr)=>s+Object.values(yr).reduce((a,b)=>a+b,0),0);
-          return sum(b)-sum(a);
-        })[0];
-      }
-      farmRow.style.display = '';
-      makePills('p2-farm-pills', farmKeys.map(k=>({value:k,label:farmLabel(k)})), currentFarm, v=>{ currentFarm=v; render(); });
+    const farmBlocksAll = blockKey ? ((DATA.monthlyByType||{})[blockKey] || {}) : {};
+    const farmKeys = Object.keys(farmBlocksAll);
+    let block = null, matchedFarmKey = null;
+    if(farmKeys.length <= 1){
+      matchedFarmKey = farmKeys[0] || null;
+      block = matchedFarmKey ? farmBlocksAll[matchedFarmKey] : null;
     } else {
-      farmRow.style.display = 'none';
-      currentFarm = farmKeys[0] || null;
+      matchedFarmKey = farmKeys.find(k => (p.product||'').toUpperCase().startsWith(farmLabel(k).toUpperCase())) || null;
+      block = matchedFarmKey ? farmBlocksAll[matchedFarmKey] : combineMonthlyBlocks(farmKeys.map(k=>farmBlocksAll[k]));
     }
-    const block = currentFarm ? farmBlocks[currentFarm] : null;
     const qtyMetric = blockKey ? monthlyQtyMetricFor(blockKey) : null;
     const monthlyQty = block ? (block[qtyMetric]||{}) : {};
     const monthlyAmt = block ? (block[MONTHLY_AMOUNT_METRIC]||{}) : {};
@@ -1169,8 +1181,8 @@ function initTier2(){
       drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-detail-title').textContent = 'Year-by-year detail';
-      document.getElementById('p2-detail-cap').textContent = currentFarm && farmKeys.length>1
-        ? `No sales recorded yet for ${farmLabel(currentFarm)}`
+      document.getElementById('p2-detail-cap').textContent = matchedFarmKey
+        ? `No sales recorded yet for ${farmLabel(matchedFarmKey)}`
         : 'No monthly breakdown in source data for this product';
       document.getElementById('p2-detail-content').innerHTML = `<div class="tbl-scroll"><table><thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
         <tbody>${years.map((y,i)=>`<tr ${(!isAll && i===focusIdx)?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody></table></div>`;
