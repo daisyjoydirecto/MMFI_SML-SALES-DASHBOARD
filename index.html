@@ -115,6 +115,31 @@
   select.btn:focus{ outline:2px solid var(--olive); outline-offset:1px; }
   .filters-block{ margin-bottom:16px; }
 
+  /* ---- pinned filter sidebar ---- */
+  .tier-layout{ display:flex; gap:20px; align-items:flex-start; }
+  .tier-main{ flex:1; min-width:0; }
+  .tier-sidebar{
+    flex:0 0 184px; position:sticky; top:84px; align-self:flex-start;
+    background:var(--card); border:1px solid var(--line); border-radius:4px;
+    padding:14px 14px 16px; max-height:calc(100vh - 100px); overflow-y:auto;
+  }
+  .tier-sidebar .sidebar-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--grey); margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .tier-sidebar .filters-block{ margin-bottom:0; }
+  .tier-sidebar .filter-row{ flex-direction:column; align-items:flex-start; gap:6px; margin-bottom:16px; }
+  .tier-sidebar .filter-row:last-child{ margin-bottom:0; }
+  .tier-sidebar .filter-row .flabel{ margin-right:0; }
+  .tier-sidebar .filter-row .btnrow{ flex-direction:column; width:100%; gap:6px; }
+  .tier-sidebar .filter-row .btnrow .btn{ width:100%; text-align:left; }
+  .tier-sidebar select.btn{ width:100%; }
+  @media (max-width: 900px){
+    .tier-layout{ flex-direction:column; }
+    .tier-sidebar{ position:relative; top:auto; width:100%; flex:1 1 auto; max-height:none; }
+    .tier-sidebar .filter-row{ flex-direction:row; align-items:center; margin-bottom:12px; }
+    .tier-sidebar .filter-row .btnrow{ flex-direction:row; width:auto; gap:8px; }
+    .tier-sidebar .filter-row .btnrow .btn{ width:auto; }
+    .tier-sidebar select.btn{ width:auto; }
+  }
+
   .search-box{
     display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line);
     border-radius:3px; padding:8px 12px; margin-bottom:12px; max-width:320px;
@@ -221,29 +246,37 @@
     <div class="section-title">1. Overall Summary</div>
     <div class="section-sub">Total revenue across every product line, company-wide</div>
 
-    <div class="filters-block">
-      <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="t1-year-pills"></div></div>
-    </div>
+    <div class="tier-layout">
+      <aside class="tier-sidebar">
+        <div class="sidebar-label">Filters</div>
+        <div class="filters-block">
+          <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="t1-year-pills"></div></div>
+        </div>
+      </aside>
+      <div class="tier-main">
 
-    <div class="kpi-grid" id="p1-kpis"></div>
+        <div class="kpi-grid" id="p1-kpis"></div>
 
-    <div class="chart-grid even">
-      <div class="card card-pad">
-        <div class="card-title" id="t1-chart1-title">Total sales by year</div>
-        <div class="card-cap" id="t1-chart1-cap">Stacked by product line, in PHP</div>
-        <div class="chart-h tall" id="chart-overall-stack"></div>
+        <div class="chart-grid even">
+          <div class="card card-pad">
+            <div class="card-title" id="t1-chart1-title">Total sales by year</div>
+            <div class="card-cap" id="t1-chart1-cap">Stacked by product line, in PHP</div>
+            <div class="chart-h tall" id="chart-overall-stack"></div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title" id="t1-chart2-title">Year‑over‑year growth</div>
+            <div class="card-cap" id="t1-chart2-cap">% change in total sales value</div>
+            <div class="chart-h tall" id="chart-yoy-growth"></div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="card-title">Yearly summary table</div>
+          <div class="card-cap">Sales value per product line, per year</div>
+          <div class="tbl-scroll"><table id="p1-table"></table></div>
+        </div>
+
       </div>
-      <div class="card card-pad">
-        <div class="card-title" id="t1-chart2-title">Year‑over‑year growth</div>
-        <div class="card-cap" id="t1-chart2-cap">% change in total sales value</div>
-        <div class="chart-h tall" id="chart-yoy-growth"></div>
-      </div>
-    </div>
-
-    <div class="card card-pad">
-      <div class="card-title">Yearly summary table</div>
-      <div class="card-cap">Sales value per product line, per year</div>
-      <div class="tbl-scroll"><table id="p1-table"></table></div>
     </div>
   </section>
 
@@ -252,36 +285,44 @@
     <div class="section-title">2. Main Products</div>
     <div class="section-sub" id="t2-sub">The company's core revenue lines</div>
 
-    <div class="filters-block">
-      <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
-      <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
-    </div>
+    <div class="tier-layout">
+      <aside class="tier-sidebar">
+        <div class="sidebar-label">Filters</div>
+        <div class="filters-block">
+          <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
+          <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
+        </div>
+      </aside>
+      <div class="tier-main">
 
-    <div class="kpi-grid" id="p2-kpis"></div>
+        <div class="kpi-grid" id="p2-kpis"></div>
 
-    <div class="chart-grid even">
-      <div class="card card-pad">
-        <div class="card-title" id="p2-qty-title">Annual quantity</div>
-        <div class="card-cap" id="p2-qty-cap">Units per year</div>
-        <div class="chart-h tall" id="chart-product-qty"></div>
-      </div>
-      <div class="card card-pad">
-        <div class="card-title">Annual sales value</div>
-        <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
-        <div class="chart-h tall" id="chart-product-annual"></div>
-      </div>
-    </div>
+        <div class="chart-grid even">
+          <div class="card card-pad">
+            <div class="card-title" id="p2-qty-title">Annual quantity</div>
+            <div class="card-cap" id="p2-qty-cap">Units per year</div>
+            <div class="chart-h tall" id="chart-product-qty"></div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title">Annual sales value</div>
+            <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
+            <div class="chart-h tall" id="chart-product-annual"></div>
+          </div>
+        </div>
 
-    <div class="chart-grid even">
-      <div class="card card-pad">
-        <div class="card-title" id="p2-rate-title">Average unit rate</div>
-        <div class="card-cap" id="p2-rate-cap">PHP per unit, by year</div>
-        <div class="chart-h tall" id="chart-product-rate"></div>
-      </div>
-      <div class="card card-pad">
-        <div class="card-title" id="p2-detail-title">Year-by-year detail</div>
-        <div class="card-cap" id="p2-detail-cap">No monthly breakdown in source data</div>
-        <div id="p2-detail-content"></div>
+        <div class="chart-grid even">
+          <div class="card card-pad">
+            <div class="card-title" id="p2-rate-title">Average unit rate</div>
+            <div class="card-cap" id="p2-rate-cap">PHP per unit, by year</div>
+            <div class="chart-h tall" id="chart-product-rate"></div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title" id="p2-detail-title">Year-by-year detail</div>
+            <div class="card-cap" id="p2-detail-cap">No monthly breakdown in source data</div>
+            <div id="p2-detail-content"></div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -291,27 +332,35 @@
     <div class="section-title">3. MCP &amp; By-Products</div>
     <div class="section-sub">Meat-cut processing, swine and poultry by-products, partner-farm volumes, and miscellaneous sales lines</div>
 
-    <div class="filters-block">
-      <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p3-year-pills"></div></div>
-      <div class="filter-row"><span class="flabel">Category:</span><div class="btnrow" id="p3-cat-pills"></div></div>
-    </div>
+    <div class="tier-layout">
+      <aside class="tier-sidebar">
+        <div class="sidebar-label">Filters</div>
+        <div class="filters-block">
+          <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p3-year-pills"></div></div>
+          <div class="filter-row"><span class="flabel">Category:</span><div class="btnrow" id="p3-cat-pills"></div></div>
+        </div>
+      </aside>
+      <div class="tier-main">
 
-    <div class="kpi-grid" id="p3-kpis"></div>
+        <div class="kpi-grid" id="p3-kpis"></div>
 
-    <div class="chart-grid even">
-      <div class="card card-pad">
-        <div class="card-title" id="p3-chart1-title">Sales by category</div>
-        <div class="card-cap" id="p3-chart1-cap">Total PHP per year, by group</div>
-        <div class="chart-h tall" id="chart-mcp-groups"></div>
+        <div class="chart-grid even">
+          <div class="card card-pad">
+            <div class="card-title" id="p3-chart1-title">Sales by category</div>
+            <div class="card-cap" id="p3-chart1-cap">Total PHP per year, by group</div>
+            <div class="chart-h tall" id="chart-mcp-groups"></div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title" id="p3-chart2-title">Top contributing line items</div>
+            <div class="card-cap" id="p3-chart2-cap">Ranked by total sales value</div>
+            <div class="chart-h tall" id="chart-mcp-top"></div>
+          </div>
+        </div>
+
+        <div id="p3-groups"></div>
+
       </div>
-      <div class="card card-pad">
-        <div class="card-title" id="p3-chart2-title">Top contributing line items</div>
-        <div class="card-cap" id="p3-chart2-cap">Ranked by total sales value</div>
-        <div class="chart-h tall" id="chart-mcp-top"></div>
-      </div>
     </div>
-
-    <div id="p3-groups"></div>
   </section>
 
   <!-- TIER 4 -->
@@ -319,34 +368,42 @@
     <div class="section-title">4. Customers</div>
     <div class="section-sub">Account-level performance from the YOY Sales-Customers ledger — concentration, growth, and product mix per buyer</div>
 
-    <div class="filters-block">
-      <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p4-year-pills"></div></div>
-      <div class="filter-row"><span class="flabel">Product:</span><select class="btn" id="p4-product-select"></select></div>
-    </div>
+    <div class="tier-layout">
+      <aside class="tier-sidebar">
+        <div class="sidebar-label">Filters</div>
+        <div class="filters-block">
+          <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p4-year-pills"></div></div>
+          <div class="filter-row"><span class="flabel">Product:</span><select class="btn" id="p4-product-select"></select></div>
+        </div>
+      </aside>
+      <div class="tier-main">
 
-    <div class="kpi-grid" id="p4-kpis"></div>
+        <div class="kpi-grid" id="p4-kpis"></div>
 
-    <div class="chart-grid even">
-      <div class="card card-pad">
-        <div class="card-title" id="p4-chart1-title">Top 12 customers</div>
-        <div class="card-cap" id="p4-chart1-cap">By total sales value</div>
-        <div class="chart-h tall" id="chart-cust-top"></div>
-      </div>
-      <div class="card card-pad">
-        <div class="card-title" id="p4-chart2-title">Top products across customers</div>
-        <div class="card-cap" id="p4-chart2-cap">By total sales value</div>
-        <div class="chart-h tall" id="chart-cust-products"></div>
-      </div>
-    </div>
+        <div class="chart-grid even">
+          <div class="card card-pad">
+            <div class="card-title" id="p4-chart1-title">Top 12 customers</div>
+            <div class="card-cap" id="p4-chart1-cap">By total sales value</div>
+            <div class="chart-h tall" id="chart-cust-top"></div>
+          </div>
+          <div class="card card-pad">
+            <div class="card-title" id="p4-chart2-title">Top products across customers</div>
+            <div class="card-cap" id="p4-chart2-cap">By total sales value</div>
+            <div class="chart-h tall" id="chart-cust-products"></div>
+          </div>
+        </div>
 
-    <div class="card card-pad">
-      <div class="card-title">All customers</div>
-      <div class="card-cap">Search, and browse per‑year sales &amp; top product</div>
-      <div class="search-box">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="cust-search" placeholder="Search customer name…">
+        <div class="card card-pad">
+          <div class="card-title">All customers</div>
+          <div class="card-cap">Search, and browse per‑year sales &amp; top product</div>
+          <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="cust-search" placeholder="Search customer name…">
+          </div>
+          <div class="tbl-scroll"><table id="p4-table"></table></div>
+        </div>
+
       </div>
-      <div class="tbl-scroll"><table id="p4-table"></table></div>
     </div>
   </section>
 
@@ -524,6 +581,26 @@ function drawBarChart(containerId, {labels, series, valueFmt, legend=true, highl
   }
 }
 
+// Builds a smooth (Catmull-Rom → cubic Bezier) SVG path string through a
+// list of [x,y] points, so line/area charts read as flowing curves instead
+// of straight connect-the-dot segments. `move` controls whether the string
+// opens with an "M" (true) or continues from an existing "M ...L" start
+// (false, used when the smooth curve is appended after an area baseline).
+function smoothPathD(points, move=true){
+  if (points.length < 2) return move ? `M ${points[0][0]} ${points[0][1]} ` : '';
+  let d = move ? `M ${points[0][0]} ${points[0][1]} ` : '';
+  for (let i=0; i<points.length-1; i++){
+    const p0 = points[i-1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i+1];
+    const p3 = points[i+2] || p2;
+    const cp1x = p1[0] + (p2[0]-p0[0])/6, cp1y = p1[1] + (p2[1]-p0[1])/6;
+    const cp2x = p2[0] - (p3[0]-p1[0])/6, cp2y = p2[1] - (p3[1]-p1[1])/6;
+    d += `C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p2[0]} ${p2[1]} `;
+  }
+  return d;
+}
+
 function drawLineChart(containerId, {labels, series, valueFmt, area=false, legend=true, highlightIndex=null, showValueLabels=false}){
   const {svg, W, H} = initSvg(containerId);
   const isNarrow = W < 380;
@@ -572,12 +649,12 @@ function drawLineChart(containerId, {labels, series, valueFmt, area=false, legen
     validSegs.forEach(segPts=>{
       if (area && segPts.length>1){
         const baseY = yAt(Math.max(niceMin,0));
-        let d = `M ${segPts[0][0]} ${baseY} `;
-        segPts.forEach(p=> d += `L ${p[0]} ${p[1]} `);
+        let d = `M ${segPts[0][0]} ${baseY} L ${segPts[0][0]} ${segPts[0][1]} `;
+        d += smoothPathD(segPts, false);
         d += `L ${segPts[segPts.length-1][0]} ${baseY} Z`;
         svg.appendChild(el('path', {d, fill:ser.color, opacity:0.13*opacity}));
       }
-      let d = ''; segPts.forEach((p,i)=> d += (i===0?'M':'L') + ` ${p[0]} ${p[1]} `);
+      const d = smoothPathD(segPts, true);
       svg.appendChild(el('path', {d, fill:'none', stroke:ser.color, 'stroke-width':ser.bold?3:1.75, 'stroke-linejoin':'round', 'stroke-linecap':'round', opacity}));
     });
     ser.data.forEach((v,i)=>{
