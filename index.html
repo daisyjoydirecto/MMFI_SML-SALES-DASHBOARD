@@ -1463,9 +1463,9 @@ function initTier3(){
     document.getElementById('p3-chart2-cap').textContent = `Share of the top 5 by total ${yearRangeLabel} ${tQ?'quantity':'sales value'}${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
     drawPieChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i[tKey]), valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
 
-    let html = '<div class="subsection-label" style="color:var(--ink);">Detailed category breakdown</div>';
+    let html = catFilter==='ALL' ? '' : '<div class="subsection-label" style="color:var(--ink);">Detailed category breakdown</div>';
     const grpCharts = [];
-    scopedGroups.forEach(g=>{
+    (catFilter==='ALL' ? [] : scopedGroups).forEach(g=>{
       const items = nonMain.filter(p=>p.category===g).filter(item=> years.some(y=>((item.years[y]||{}).amount||0) > 0));
       if(!items.length) return;
       const gi = grpCharts.length; grpCharts.push({g, items});
