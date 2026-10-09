@@ -120,16 +120,16 @@
 
   /* ---- pinned filter sidebar ---- */
   .tier-layout{ display:flex; gap:20px; align-items:stretch; width:100%; }
-  .tier-main{ flex:1 1 auto; width:100%; min-width:0; }
+  .tier-main{ flex:1 1 auto; width:100%; min-width:0; padding-top:10px; }
   .tier-sidebar{
     flex:0 0 328px; width:328px;
     background:linear-gradient(180deg,#ffffff 0%,#f6f9ec 55%,#eef4d9 100%);
-    border:0; border-right:1px solid #e3ebc8; border-radius:0 22px 22px 0;
+    border:0; border-right:1px solid #e3ebc8; border-radius:0;
     box-shadow:6px 0 24px rgba(92,128,0,.08);
   }
   .tier-sidebar .sidebar-sticky{
-    position:sticky; top:100px; padding:22px 22px 24px;
-    max-height:calc(100vh - 116px); overflow-y:auto; scrollbar-width:thin;
+    position:sticky; top:132px; padding:22px 22px 24px;
+    max-height:calc(100vh - 148px); overflow-y:auto; scrollbar-width:thin;
   }
   .tier-sidebar .section-title{ font-size:16px; line-height:1.25; }
   .tier-sidebar .section-sub{ font-size:11px; line-height:1.4; }
@@ -151,15 +151,6 @@
     box-shadow:0 6px 16px rgba(92,128,0,.32); transform:none;
   }
   .tier-sidebar .section-title{ letter-spacing:-.01em; }
-  .side-nav{ display:flex; flex-direction:column; gap:8px; padding-bottom:18px; margin-bottom:18px; background:linear-gradient(90deg,var(--olive),transparent) bottom/100% 2px no-repeat; }
-  .side-nav .btn{
-    width:100%; text-align:left; white-space:normal; border:1px solid transparent; background:rgba(255,255,255,.75);
-    border-radius:999px; padding:10px 18px; font-size:13px; font-weight:600; color:var(--ink-soft);
-    box-shadow:0 1px 3px rgba(0,0,0,.06);
-    transition:transform .25s cubic-bezier(.4,0,.2,1), background .25s, box-shadow .25s, color .25s;
-  }
-  .side-nav .btn:hover{ background:#fff; color:var(--olive-dark); transform:translateX(5px); box-shadow:0 4px 12px rgba(92,128,0,.16); }
-  .side-nav .btn.active{ background:linear-gradient(135deg,var(--olive) 0%,var(--olive-dark) 100%); color:#fff; box-shadow:0 6px 16px rgba(92,128,0,.32); }
   .card-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
   .card-head > div:first-child{ min-width:0; flex:1 1 180px; }
   .seg-toggle{ display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:3px; background:#fff; flex-shrink:0; }
@@ -171,10 +162,8 @@
   .tier-sidebar select.btn{ width:100%; }
   @media (max-width: 900px){
     .tier-layout{ flex-direction:column; }
-    .tier-sidebar{ width:100%; flex:1 1 auto; border-radius:0 0 22px 22px; border-right:0; }
+    .tier-sidebar{ width:100%; flex:1 1 auto; border-radius:0; border-right:0; }
     .tier-sidebar .sidebar-sticky{ position:relative; top:auto; max-height:none; }
-    .side-nav{ flex-direction:row; flex-wrap:wrap; }
-    .side-nav .btn{ width:auto; }
     .tier-sidebar .filter-row{ flex-direction:row; align-items:center; margin-bottom:12px; }
     .tier-sidebar .filter-row .btnrow{ flex-direction:row; width:auto; gap:8px; }
     .tier-sidebar .filter-row .btnrow .btn{ width:auto; }
@@ -265,6 +254,15 @@
     </div>
   </div>
 </header>
+
+<div class="qnav-wrap">
+  <nav class="qnav">
+    <button class="btn active" data-tier="t1">1. Overview</button>
+    <button class="btn" data-tier="t2">2. Main Products</button>
+    <button class="btn" data-tier="t3">3. MCP &amp; By-Products</button>
+    <button class="btn" data-tier="t4">4. Customers</button>
+  </nav>
+</div>
 
 </div>
 
@@ -1543,17 +1541,12 @@ function initTier4(){
   render();
 }
 
-/* ---------------- tab switching (nav lives inside each tier's sidebar) ---------------- */
-const NAV_ITEMS = [['t1','1. Overview'],['t2','2. Main Products'],['t3','3. MCP &amp; By-Products'],['t4','4. Customers']];
-document.querySelectorAll('.tier').forEach(tier=>{
-  const host = tier.querySelector('.sidebar-sticky'); if(!host) return;
-  const nav = document.createElement('nav'); nav.className = 'side-nav';
-  nav.innerHTML = NAV_ITEMS.map(([id,l])=>`<button class="btn ${id===tier.id?'active':''}" data-tier="${id}">${l}</button>`).join('');
-  host.insertBefore(nav, host.firstChild);
-});
-document.querySelectorAll('.side-nav .btn').forEach(btn=>{
+/* ---------------- tab switching ---------------- */
+document.querySelectorAll('.qnav .btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.qnav .btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tier').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
     document.getElementById(btn.dataset.tier).classList.add('active');
     CHART_REGISTRY.forEach(fn=>fn());
   });
