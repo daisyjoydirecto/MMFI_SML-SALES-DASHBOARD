@@ -291,8 +291,10 @@
 
         <div class="chart-grid even">
           <div class="card card-pad">
-            <div class="card-title" id="t1-chart1-title">Total sales by year</div>
-            <div class="card-cap" id="t1-chart1-cap">Stacked by product line, in PHP</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="t1-chart1-title">Total sales by year</div>
+              <div class="card-cap" id="t1-chart1-cap">Stacked by product line, in PHP</div>
+            </div><div class="seg-toggle" id="tg-p1-stack"></div></div>
             <div class="chart-h tall" id="chart-overall-stack"></div>
           </div>
           <div class="card card-pad">
@@ -1028,11 +1030,16 @@ function initTier1(){
   const lastIdx = years.length-1;
   document.getElementById('hdr-sub').textContent = `Sales Meat and Livestock Department — ${years[0]}–${years[lastIdx]}`;
 
-  let yearFilter='ALL';
+  let yearFilter='ALL', mStack='amount';
+  makeMetricToggle('tg-p1-stack', mStack, m=>{ mStack=m; render(); });
   makePills('t1-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
 
   function totalsByYear(cats){
     return years.map(y => DATA.products.filter(p=>cats.includes(p.category)).reduce((s,p)=> s+((p.years[y]||{}).amount||0), 0));
+  }
+
+  function qtyByYear(cats){
+    return years.map(y => DATA.products.filter(p=>cats.includes(p.category)).reduce((s,p)=> s+((p.years[y]||{}).qty||0), 0));
   }
 
   function render(){
@@ -1047,6 +1054,8 @@ function initTier1(){
 
     const catTotalsAtY = DATA.categories.map(c => (DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+((p.years[yLabel]||{}).amount||0),0)));
     const leadIdx = catTotalsAtY.indexOf(Math.max(...catTotalsAtY));
+    let leadProd = null;
+    DATA.products.forEach(p=>{ const a=((p.years[yLabel]||{}).amount||0); if(a>0 && (!leadProd || a>leadProd.amt)) leadProd={product:p.product, amt:a}; });
 
     // "Strongest Year" only makes sense with All Years selected. Once a
     // specific year is picked, swap it for "Strongest Month" — computed
@@ -1085,20 +1094,20 @@ function initTier1(){
       kpi1,
       kpi2,
       kpi3,
-      {lbl:`Product Lines`, val:String(cats.length), delta:`categories tracked`, dir:'flat', border:C.ink},
-      {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.inkSoft},
+      {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.ink},
+      {lbl:`${yLabel} Leading Product`, val:leadProd?titleCase(leadProd.product):'—', delta:leadProd?PHP(leadProd.amt,{compact:true}):'', dir:'flat', border:C.inkSoft, small:true},
     ];
     document.getElementById('p1-kpis').innerHTML = kpis.map(k=>`
       <div class="card kpi" style="border-top:3px solid ${k.border};">
-        <div class="lbl">${k.lbl}</div><div class="val num-font">${k.val}</div>
+        <div class="lbl">${k.lbl}</div><div class="val ${k.small?'':'num-font'}" ${k.small?'style="font-size:15px;"':''}>${k.val}</div>
         <div class="delta ${k.dir}">${k.delta ? (k.dir==='up'?'▲ ':k.dir==='down'?'▼ ':'· ') + k.delta : ''}</div>
       </div>`).join('');
 
     const hIdx = yearFilter==='ALL' ? null : yIdx;
-    document.getElementById('t1-chart1-title').textContent = 'Total sales by year';
-    document.getElementById('t1-chart1-cap').textContent = 'Stacked by product line, in PHP' + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
-
-    drawBarChart('chart-overall-stack', { labels:years, series:DATA.categories.map(c=>({label:titleCase(c), color:DATA.catColor[c], data:totalsByYear([c])})), valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), highlightIndex:hIdx });
+    const sQ = mStack==='qty';
+    document.getElementById('t1-chart1-title').textContent = sQ ? 'Total quantity by year' : 'Total sales by year';
+    document.getElementById('t1-chart1-cap').textContent = (sQ ? 'Stacked by product line, in units (units vary by product)' : 'Stacked by product line, in PHP') + (hIdx!==null ? ` — ${yLabel} highlighted` : '');
+    drawBarChart('chart-overall-stack', { labels:years, series:DATA.categories.map(c=>({label:titleCase(c), color:DATA.catColor[c], data:(sQ?qtyByYear:totalsByYear)([c])})), valueFmt: sQ ? ((v,full)=>full?NUM(v):NUM(v,{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})), highlightIndex:hIdx });
 
     const growthArr = arr.map((v,i)=> i===0?null:(arr[i-1]?(v-arr[i-1])/arr[i-1]*100:null));
     document.getElementById('t1-chart2-title').textContent = 'Year‑over‑year growth';
@@ -1351,6 +1360,7 @@ function initTier3(){
   const groupNames = DATA.categories.filter(c=>!c.toUpperCase().includes('MAIN PRODUCT'));
 
   let yearFilter='ALL', catFilter='ALL', mTop='amount';
+  const mGrp = {};
   makeMetricToggle('tg-p3-top', mTop, m=>{ mTop=m; render(); });
   makePills('p3-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
   makePills('p3-cat-pills', [{value:'ALL',label:'All Categories'}, ...groupNames.map(g=>({value:g,label:titleCase(g)}))], catFilter, v=>{ catFilter=v; render(); });
@@ -1371,16 +1381,8 @@ function initTier3(){
     const prevTotal = prevYear!=null ? scopedGroups.reduce((s,g)=> s+groupTotalForYears(g,[prevYear]), 0) : null;
     const growth = (prevYear!=null && prevTotal) ? (focusTotal-prevTotal)/prevTotal*100 : null;
 
-    let kpi3Label, kpi3Val, kpi3Sub;
-    if(catFilter==='ALL'){
-      const groupFinal = groupNames.map(g=>groupTotalForYears(g,yrs));
-      const topIdx = groupFinal.indexOf(Math.max(...groupFinal));
-      kpi3Label='Leading Category'; kpi3Val=titleCase(groupNames[topIdx]); kpi3Sub=PHP(groupFinal[topIdx],{compact:true});
-    } else {
-      let items = nonMain.filter(p=>p.category===catFilter).map(item=>({name:item.product, total:itemTotal(item,yrs)})).filter(i=>i.total>0);
-      items.sort((a,b)=>b.total-a.total);
-      kpi3Label='Leading Item'; kpi3Val=items[0]?titleCase(items[0].name):'—'; kpi3Sub=items[0]?PHP(items[0].total,{compact:true}):'—';
-    }
+    let leadItem = null;
+    scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const t=itemTotal(item,yrs); if(t>0 && (!leadItem || t>leadItem.total)) leadItem={name:item.product, total:t}; }));
 
     let allItems = [];
     scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const total=itemTotal(item,yrs); const qty=yrs.reduce((s2,y)=>s2+((item.years[y]||{}).qty||0),0); if(total>0||qty>0) allItems.push({name:item.product, group:g, total, qty}); }));
@@ -1391,8 +1393,8 @@ function initTier3(){
     document.getElementById('p3-kpis').innerHTML = `
       <div class="card kpi" style="border-top:3px solid ${C.olive};"><div class="lbl">${catLabel} Total, ${yearRangeLabel}</div><div class="val num-font">${PHP(grandTotal,{compact:true})}</div><div class="delta">· ${scopedGroups.length} categor${scopedGroups.length===1?'y':'ies'}</div></div>
       <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">${focusYear} Total</div><div class="val num-font">${PHP(focusTotal,{compact:true})}</div><div class="delta ${growth>=0?'up':'down'}">${growth==null?'· first year on record':(growth>=0?'▲ ':'▼ ')+PCT(growth)+' vs '+prevYear}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">${kpi3Label}</div><div class="val" style="font-size:15px;">${kpi3Val}</div><div class="delta">· ${kpi3Sub}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">Active Line Items</div><div class="val num-font">${activeLineItems}</div><div class="delta">· in current selection</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">Active Line Items</div><div class="val num-font">${activeLineItems}</div><div class="delta">· in current selection</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">Leading Product</div><div class="val" style="font-size:15px;">${leadItem?titleCase(leadItem.name):'—'}</div><div class="delta">· ${leadItem?PHP(leadItem.total,{compact:true}):'—'}</div></div>
     `;
 
     const hIdx = yearFilter==='ALL' ? null : focusIdx;
@@ -1411,11 +1413,18 @@ function initTier3(){
     document.getElementById('p3-chart2-cap').textContent = `Ranked by total ${yearRangeLabel} ${tQ?'quantity':'sales value'}${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
     drawHBarChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i[tKey]), color:tQ?C.olive:C.oliveDark, valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
 
-    let html = '';
+    let html = '<div class="subsection-label" style="color:var(--ink);">Detailed category breakdown</div>';
+    const grpCharts = [];
     scopedGroups.forEach(g=>{
       const items = nonMain.filter(p=>p.category===g).filter(item=> years.some(y=>((item.years[y]||{}).amount||0) > 0));
       if(!items.length) return;
-      html += `<div class="subsection-label" style="color:${DATA.catColor[g]};">${titleCase(g)}</div><div class="card card-pad"><div class="tbl-scroll"><table>
+      const gi = grpCharts.length; grpCharts.push({g, items});
+      const gQ = (mGrp[g]||'amount')==='qty';
+      const nShown = Math.min(items.filter(it=>itemTotal(it,yrs)>0||yrs.some(y=>((it.years[y]||{}).qty||0)>0)).length, 12);
+      html += `<div class="subsection-label" style="color:${DATA.catColor[g]};">${titleCase(g)}</div>
+        <div class="card card-pad" style="margin-bottom:10px;"><div class="card-head"><div><div class="card-title">${titleCase(g)} — line items</div><div class="card-cap">Ranked by ${yearRangeLabel} ${gQ?'quantity':'sales value'}</div></div><div class="seg-toggle" id="tg-grp-${gi}"></div></div>
+        <div class="chart-h" id="chart-grp-${gi}" style="height:${Math.max(150, nShown*30+20)}px;"></div></div>
+        <div class="card card-pad"><div class="tbl-scroll"><table>
         <thead><tr><th>Item</th>${years.map(y=>`<th class="r">${y} Qty</th><th class="r">${y} ₱</th>`).join('')}</tr></thead><tbody>`;
       items.forEach(item=>{
         html += `<tr><td class="name">${titleCase(item.product)}</td>`;
@@ -1428,6 +1437,12 @@ function initTier3(){
       html += '</tbody></table></div></div>';
     });
     document.getElementById('p3-groups').innerHTML = html;
+    grpCharts.forEach(({g,items},gi)=>{
+      makeMetricToggle('tg-grp-'+gi, mGrp[g]||'amount', m=>{ mGrp[g]=m; render(); });
+      const gQ = (mGrp[g]||'amount')==='qty';
+      const rows = items.map(it=>({name:it.product, v: gQ ? yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0) : itemTotal(it,yrs)})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
+      drawHBarChart('chart-grp-'+gi, { labels:rows.map(r=>titleCase(r.name)), values:rows.map(r=>r.v), color:DATA.catColor[g]||C.oliveDark, valueFmt: gQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
+    });
   }
   registerChart(render);
   render();
