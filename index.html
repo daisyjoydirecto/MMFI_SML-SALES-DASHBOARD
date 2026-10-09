@@ -1384,6 +1384,8 @@ function initTier3(){
     const prevTotal = prevYear!=null ? scopedGroups.reduce((s,g)=> s+groupTotalForYears(g,[prevYear]), 0) : null;
     const growth = (prevYear!=null && prevTotal) ? (focusTotal-prevTotal)/prevTotal*100 : null;
 
+    let leadCat = null;
+    scopedGroups.forEach(g=>{ const t=groupTotalForYears(g,yrs); if(t>0 && (!leadCat || t>leadCat.total)) leadCat={name:g, total:t}; });
     let leadItem = null;
     scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const t=itemTotal(item,yrs); if(t>0 && (!leadItem || t>leadItem.total)) leadItem={name:item.product, total:t}; }));
 
@@ -1396,7 +1398,7 @@ function initTier3(){
     document.getElementById('p3-kpis').innerHTML = `
       <div class="card kpi" style="border-top:3px solid ${C.olive};"><div class="lbl">${catLabel} Total, ${yearRangeLabel}</div><div class="val num-font">${PHP(grandTotal,{compact:true})}</div><div class="delta">· ${scopedGroups.length} categor${scopedGroups.length===1?'y':'ies'}</div></div>
       <div class="card kpi" style="border-top:3px solid ${C.oliveDark};"><div class="lbl">${focusYear} Total</div><div class="val num-font">${PHP(focusTotal,{compact:true})}</div><div class="delta ${growth>=0?'up':'down'}">${growth==null?'· first year on record':(growth>=0?'▲ ':'▼ ')+PCT(growth)+' vs '+prevYear}</div></div>
-      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">Active Line Items</div><div class="val num-font">${activeLineItems}</div><div class="delta">· in current selection</div></div>
+      <div class="card kpi" style="border-top:3px solid ${C.ink};"><div class="lbl">Leading Category</div><div class="val" style="font-size:15px;">${leadCat?titleCase(leadCat.name):'—'}</div><div class="delta">· ${leadCat?PHP(leadCat.total,{compact:true}):'—'}</div></div>
       <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">Leading Product</div><div class="val" style="font-size:15px;">${leadItem?titleCase(leadItem.name):'—'}</div><div class="delta">· ${leadItem?PHP(leadItem.total,{compact:true}):'—'}</div></div>
     `;
 
