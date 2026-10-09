@@ -1052,10 +1052,13 @@ function initTier1(){
     const allTime = arr.reduce((a,b)=>a+b,0);
     const bestYearIdx = arr.indexOf(Math.max(...arr));
 
-    const catTotalsAtY = DATA.categories.map(c => (DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+((p.years[yLabel]||{}).amount||0),0)));
+    const scopeYrs = yearFilter==='ALL' ? years : [yLabel];
+    const scopeTag = yearFilter==='ALL' ? 'All-Time' : yLabel;
+    const sumYrs = p => scopeYrs.reduce((s,y)=>s+((p.years[y]||{}).amount||0),0);
+    const catTotalsAtY = DATA.categories.map(c => DATA.products.filter(p=>p.category===c).reduce((s,p)=>s+sumYrs(p),0));
     const leadIdx = catTotalsAtY.indexOf(Math.max(...catTotalsAtY));
     let leadProd = null;
-    DATA.products.forEach(p=>{ const a=((p.years[yLabel]||{}).amount||0); if(a>0 && (!leadProd || a>leadProd.amt)) leadProd={product:p.product, amt:a}; });
+    DATA.products.forEach(p=>{ const a=sumYrs(p); if(a>0 && (!leadProd || a>leadProd.amt)) leadProd={product:p.product, amt:a}; });
 
     // "Strongest Year" only makes sense with All Years selected. Once a
     // specific year is picked, swap it for "Strongest Month" — computed
@@ -1087,15 +1090,15 @@ function initTier1(){
 
     const shareOfAllTime = allTime ? (val/allTime*100) : null;
     const kpi3 = yearFilter==='ALL'
-      ? {lbl:`${yLabel} Sales`, val:PHP(val,{compact:true}), delta:PCT(growth), dir:(growth||0)>=0?'up':'down', border:C.oliveDark}
+      ? {lbl:`Avg. Annual Sales (${years[0]}–${years[lastIdx]})`, val:PHP(allTime/years.length,{compact:true}), delta:`per year, ${years.length} years`, dir:'flat', border:C.oliveDark}
       : {lbl:`${yLabel} Share of All-Time`, val: shareOfAllTime!=null ? shareOfAllTime.toFixed(1)+'%' : '—', delta:`${PCT(growth)} YoY`, dir:(growth||0)>=0?'up':'down', border:C.oliveDark};
 
     const kpis = [
       kpi1,
       kpi2,
       kpi3,
-      {lbl:`${yLabel} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.ink},
-      {lbl:`${yLabel} Leading Product`, val:leadProd?titleCase(leadProd.product):'—', delta:leadProd?PHP(leadProd.amt,{compact:true}):'', dir:'flat', border:C.inkSoft, small:true},
+      {lbl:`${scopeTag} Leading Category`, val:titleCase(DATA.categories[leadIdx]), delta:PHP(catTotalsAtY[leadIdx],{compact:true}), dir:'flat', border:C.ink},
+      {lbl:`${scopeTag} Leading Product`, val:leadProd?titleCase(leadProd.product):'—', delta:leadProd?PHP(leadProd.amt,{compact:true}):'', dir:'flat', border:C.inkSoft, small:true},
     ];
     document.getElementById('p1-kpis').innerHTML = kpis.map(k=>`
       <div class="card kpi" style="border-top:3px solid ${k.border};">
