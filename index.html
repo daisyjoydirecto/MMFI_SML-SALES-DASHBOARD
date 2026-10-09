@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MMFI Year-over-Year Sales Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Questrial&display=swap" rel="stylesheet">
 <style>
   :root{
+    --font:'Century Gothic','CenturyGothic','Questrial','Apple SD Gothic Neo','Segoe UI',Arial,sans-serif;
     --ink:#0d0d0d; --ink-soft:#333333; --grey:#666666; --grey-soft:#999999;
     --line:#dcdcdc; --paper:#f2f2f2; --card:#ffffff;
     --olive:#8DB600; --olive-dark:#5c8000; --olive-deep:#4a6600;
@@ -16,12 +18,13 @@
   html,body{ margin:0; padding:0; }
   body{
     min-height:100vh; background:var(--paper); color:var(--ink);
-    font-family:'Georgia','Times New Roman',serif;
+    font-family:var(--font);
     -webkit-text-size-adjust:100%;
   }
-  .num-font{ font-family:'Courier New',monospace; }
+  .num-font{ font-family:var(--font); font-variant-numeric:tabular-nums; }
+  td, .kpi .val, .heatmap-table td{ font-variant-numeric:tabular-nums; }
   img,svg{ max-width:100%; }
-  svg text{ font-family:'Georgia','Times New Roman',serif; }
+  svg text{ font-family:var(--font); }
   table{ border-collapse:collapse; width:100%; }
   th{ cursor:default; user-select:none; }
   tr:hover td{ background:var(--hover-tan) !important; }
@@ -47,13 +50,13 @@
   .eyebrow{ font-size:10px; letter-spacing:.2em; color:var(--olive); margin-bottom:4px; text-transform:uppercase; }
   .hdr h1{ font-size:19px; font-weight:700; letter-spacing:.01em; margin:0; }
   .hdr .sub{ font-size:11.5px; color:var(--grey-soft); margin-top:2px; }
-  .hdr .sync{ font-size:10.5px; color:#ffffff; margin-top:6px; font-family:'Courier New',monospace; display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; flex-shrink:0; }
-  .hdr .sync .sdot{ width:6px; height:6px; border-radius:50%; background:var(--olive); display:inline-block; flex-shrink:0; }
+  .hdr .sync{ font-size:13px; color:#ffffff; margin-top:6px; font-family:var(--font); display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; flex-shrink:0; }
+  .hdr .sync .sdot{ width:9px; height:9px; border-radius:50%; background:var(--olive); display:inline-block; flex-shrink:0; }
   .hdr .sync .sdot.err{ background:#c97a5c; }
-  .hdr .sync button{ background:var(--olive-dark); border:1px solid var(--olive-dark); color:var(--cream); font-family:'Courier New',monospace; font-size:10px; font-weight:600; padding:3px 9px; border-radius:3px; cursor:pointer; transition:background .15s, border-color .15s; }
-  .hdr .sync button:hover{ background:var(--olive); border-color:var(--olive); }
+  .hdr .sync button{ background:linear-gradient(135deg,var(--olive) 0%,var(--olive-dark) 100%); border:0; color:#fff; font-family:var(--font); font-size:13px; font-weight:600; padding:9px 20px; border-radius:999px; cursor:pointer; box-shadow:0 4px 12px rgba(141,182,0,.3); transition:transform .2s, box-shadow .2s, opacity .2s; }
+  .hdr .sync button:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(141,182,0,.45); }
   .hdr .sync button:disabled{ opacity:0.55; cursor:default; }
-  .hdr .sync button:disabled:hover{ background:var(--olive-dark); border-color:var(--olive-dark); }
+  .hdr .sync button:disabled:hover{ transform:none; box-shadow:0 4px 12px rgba(141,182,0,.3); }
 
   @media (max-width: 640px){
     .hdr-inner{ justify-content:flex-start; }
@@ -102,7 +105,7 @@
   td{ padding:7px 10px; font-size:12.5px; border-bottom:1px solid #e6e6e6; white-space:nowrap; }
   td.name{ white-space:normal; min-width:150px; }
   .badge{ font-size:10px; padding:2px 9px; border-radius:10px; background:#e4f0b0; color:var(--olive-dark); font-weight:600; letter-spacing:.02em; }
-  .rank{ font-family:'Courier New',monospace; color:var(--olive-dark); }
+  .rank{ font-family:var(--font); color:var(--olive-dark); }
 
   .filter-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
   .filter-row .flabel{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--grey); margin-right:2px; }
@@ -120,11 +123,13 @@
   .tier-main{ flex:1 1 auto; width:100%; min-width:0; }
   .tier-sidebar{
     flex:0 0 328px; width:328px;
-    background:var(--card); border:1px solid var(--line); border-radius:4px;
+    background:linear-gradient(180deg,#ffffff 0%,#f6f9ec 55%,#eef4d9 100%);
+    border:0; border-right:1px solid #e3ebc8; border-radius:0 22px 22px 0;
+    box-shadow:6px 0 24px rgba(92,128,0,.08);
   }
   .tier-sidebar .sidebar-sticky{
-    position:sticky; top:84px; padding:16px 16px 18px;
-    max-height:calc(100vh - 100px); overflow-y:auto;
+    position:sticky; top:84px; padding:22px 22px 24px;
+    max-height:calc(100vh - 100px); overflow-y:auto; scrollbar-width:thin;
   }
   .tier-sidebar .section-title{ font-size:16px; line-height:1.25; }
   .tier-sidebar .section-sub{ font-size:11px; line-height:1.4; }
@@ -134,11 +139,24 @@
   .tier-sidebar .filter-row:last-child{ margin-bottom:0; }
   .tier-sidebar .filter-row .flabel{ margin-right:0; }
   .tier-sidebar .filter-row .btnrow{ flex-direction:column; width:100%; gap:6px; }
-  .tier-sidebar .filter-row .btnrow .btn{ width:100%; text-align:left; }
+  .tier-sidebar .filter-row .btnrow .btn{
+    width:100%; text-align:left; border:1px solid transparent; background:rgba(255,255,255,.7);
+    border-radius:999px; padding:8px 16px; font-size:12px; color:var(--ink-soft);
+    box-shadow:0 1px 3px rgba(0,0,0,.05);
+    transition:transform .25s cubic-bezier(.4,0,.2,1), background .25s, box-shadow .25s, color .25s;
+  }
+  .tier-sidebar .filter-row .btnrow .btn:hover{ background:#fff; color:var(--olive-dark); transform:translateX(5px); box-shadow:0 4px 12px rgba(92,128,0,.16); }
+  .tier-sidebar .filter-row .btnrow .btn.active{
+    background:linear-gradient(135deg,var(--olive) 0%,var(--olive-dark) 100%); color:#fff;
+    box-shadow:0 6px 16px rgba(92,128,0,.32); transform:translateX(5px);
+  }
+  .tier-sidebar .section-title{ letter-spacing:-.01em; }
+  .tier-sidebar .sidebar-label{ border-bottom:0; background:linear-gradient(90deg,var(--olive),transparent) bottom/100% 2px no-repeat; }
+  .tier-sidebar select.btn{ border-radius:999px; padding:8px 30px 8px 16px; background-color:rgba(255,255,255,.8); }
   .tier-sidebar select.btn{ width:100%; }
   @media (max-width: 900px){
     .tier-layout{ flex-direction:column; }
-    .tier-sidebar{ width:100%; flex:1 1 auto; }
+    .tier-sidebar{ width:100%; flex:1 1 auto; border-radius:0 0 22px 22px; border-right:0; }
     .tier-sidebar .sidebar-sticky{ position:relative; top:auto; max-height:none; }
     .tier-sidebar .filter-row{ flex-direction:row; align-items:center; margin-bottom:12px; }
     .tier-sidebar .filter-row .btnrow{ flex-direction:row; width:auto; gap:8px; }
@@ -158,8 +176,8 @@
   .heatmap-table{ border-collapse:collapse; width:100%; font-size:11px; }
   .heatmap-table th{ padding:4px 3px; font-size:9.5px; text-align:center; color:var(--grey); border-bottom:none; }
   .heatmap-table th.yr{ text-align:left; padding-left:6px; }
-  .heatmap-table td{ padding:5px 3px; text-align:center; border-bottom:none; border-radius:2px; font-family:'Courier New',monospace; font-size:10.5px; }
-  .heatmap-table td.yr{ text-align:left; font-family:'Georgia',serif; font-weight:700; font-size:11.5px; padding-left:6px; color:var(--ink); }
+  .heatmap-table td{ padding:5px 3px; text-align:center; border-bottom:none; border-radius:2px; font-family:var(--font); font-size:10.5px; }
+  .heatmap-table td.yr{ text-align:left; font-family:var(--font); font-weight:700; font-size:11.5px; padding-left:6px; color:var(--ink); }
   .heatmap-table tr.focus-row td.yr{ color:var(--olive-dark); }
   .subsection-label:first-of-type{ border-top:none; padding-top:0; }
 
@@ -167,7 +185,7 @@
 
   #chart-tooltip{
     position:fixed; pointer-events:none; z-index:999; background:#ffffff; border:1px solid var(--line);
-    border-radius:3px; padding:7px 10px; font-size:11.5px; font-family:'Georgia',serif; color:var(--ink);
+    border-radius:3px; padding:7px 10px; font-size:11.5px; font-family:var(--font); color:var(--ink);
     box-shadow:0 2px 8px rgba(0,0,0,.12); display:none; max-width:220px; line-height:1.5;
   }
   #chart-tooltip .tt-title{ font-weight:700; margin-bottom:2px; }
