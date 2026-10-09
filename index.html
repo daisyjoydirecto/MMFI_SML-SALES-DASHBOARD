@@ -117,6 +117,10 @@
     background-repeat:no-repeat; background-position:right 10px center;
   }
   select.btn:focus{ outline:2px solid var(--olive); outline-offset:1px; }
+  /* Dropdown list: force solid bg + dark text so options are readable without hovering (Windows Chrome inherits the translucent bg/light text) */
+  select.btn{ color-scheme:light; color:#1a1a1a; }
+  select.btn option, select.btn optgroup{ background-color:#ffffff !important; color:#1a1a1a !important; font-family:var(--font); font-size:14px; padding:6px 10px; }
+  select.btn option:checked{ background-color:#e4f0b0 !important; color:#1a1a1a !important; }
   .filters-block{ margin-bottom:16px; }
 
   /* ---- pinned filter sidebar ---- */
