@@ -1472,8 +1472,12 @@ function initTier3(){
       const gQ = (mGrp[g]||'amount')==='qty';
       const nShown = Math.min(items.filter(it=>itemTotal(it,yrs)>0||yrs.some(y=>((it.years[y]||{}).qty||0)>0)).length, 12);
       html += `<div class="subsection-label" style="color:${DATA.catColor[g]};">${titleCase(g)}</div>
-        <div class="card card-pad" style="margin-bottom:10px;"><div class="card-head"><div><div class="card-title">${titleCase(g)} — line items</div><div class="card-cap">Ranked by ${yearRangeLabel} ${gQ?'quantity':'sales value'}</div></div><div class="seg-toggle" id="tg-grp-${gi}"></div></div>
+        <div class="chart-grid even" style="margin-bottom:10px;">
+        <div class="card card-pad"><div class="card-head"><div><div class="card-title">${titleCase(g)} — line items</div><div class="card-cap">Ranked by ${yearRangeLabel} ${gQ?'quantity':'sales value'}</div></div><div class="seg-toggle" id="tg-grp-${gi}"></div></div>
         <div class="chart-h" id="chart-grp-${gi}" style="height:${Math.max(150, nShown*30+20)}px;"></div></div>
+        <div class="card card-pad"><div class="card-head"><div><div class="card-title">Average price per item</div><div class="card-cap">${titleCase(g)} — total sales ÷ total quantity, ${yearRangeLabel}</div></div></div>
+        <div class="chart-h" id="chart-grp-price-${gi}" style="height:${Math.max(150, nShown*30+20)}px;"></div></div>
+        </div>
         <div class="card card-pad"><div class="tbl-scroll"><table>
         <thead><tr><th>Item</th>${years.map(y=>`<th class="r">${y} Qty</th><th class="r">${y} ₱</th>`).join('')}</tr></thead><tbody>`;
       items.forEach(item=>{
@@ -1488,6 +1492,8 @@ function initTier3(){
     });
     document.getElementById('p3-groups').innerHTML = html;
     grpCharts.forEach(({g,items},gi)=>{
+      const priceRows = items.map(it=>{ const q=yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0); return {name:it.product, v: q>0 ? itemTotal(it,yrs)/q : 0}; }).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
+      drawHBarChart('chart-grp-price-'+gi, { labels:priceRows.map(r=>titleCase(r.name)), values:priceRows.map(r=>r.v), color:C.olive, valueFmt:(v,full)=>'₱'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) });
       makeMetricToggle('tg-grp-'+gi, mGrp[g]||'amount', m=>{ mGrp[g]=m; render(); });
       const gQ = (mGrp[g]||'amount')==='qty';
       const rows = items.map(it=>({name:it.product, v: gQ ? yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0) : itemTotal(it,yrs)})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
