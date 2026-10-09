@@ -443,6 +443,8 @@
           </div>
         </div>
 
+        <div id="p4-detail"></div>
+
         <div class="card card-pad">
           <div class="card-title">All customers</div>
           <div class="card-cap">Search, and browse per‑year sales &amp; top product</div>
@@ -1513,7 +1515,7 @@ function initTier4(){
   const years = DATA.years;
   const products = Array.from(new Set(DATA.customers.map(c=>c.product))).sort();
 
-  let yearFilter='ALL', productFilter='ALL', mCust='amount', mProd='amount';
+  let yearFilter='ALL', productFilter='ALL', mCust='amount', mProd='amount', mDet='amount';
   makeMetricToggle('tg-p4-cust', mCust, m=>{ mCust=m; render(); });
   makeMetricToggle('tg-p4-prod', mProd, m=>{ mProd=m; render(); });
   makePills('p4-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
@@ -1582,6 +1584,52 @@ function initTier4(){
       const lines = DATA.customers.filter(l=>l.product===productFilter);
       const vals = years.map(y=> lines.reduce((s,l)=>s+yearVal(l,y),0));
       drawBarChart('chart-cust-products', { labels:years, series:[{label:titleCase(productFilter), color:C.olive, data:vals}], valueFmt:pFmt, legend:false, highlightIndex: yearFilter==='ALL'?null:years.indexOf(yearFilter) });
+    }
+
+    // ---- Detailed customer breakdown (only when a specific product is selected) ----
+    const detEl = document.getElementById('p4-detail');
+    if(productFilter==='ALL'){ detEl.innerHTML=''; }
+    else {
+      const dYrs = yearFilter==='ALL' ? years : [yearFilter];
+      const dQ = mDet==='qty', dKey = dQ ? 'qty' : 'amount';
+      const unit = unitLabel(productFilter).toLowerCase();
+      const byCust = {};
+      DATA.customers.filter(l=>l.product===productFilter).forEach(l=>{
+        const c = byCust[l.customer] || (byCust[l.customer] = {name:l.customer, qty:{}, amt:{}});
+        years.forEach(y=>{ c.qty[y]=(c.qty[y]||0)+((l.years[y]||{}).qty||0); c.amt[y]=(c.amt[y]||0)+((l.years[y]||{}).amount||0); });
+      });
+      const sumY = (o,ys)=>ys.reduce((s2,y)=>s2+(o[y]||0),0);
+      const custs = Object.values(byCust).map(c=>({...c, tAmt:sumY(c.amt,dYrs), tQty:sumY(c.qty,dYrs)})).filter(c=>c.tAmt>0||c.tQty>0).sort((a,b)=>b.tAmt-a.tAmt);
+      const shown = Math.min(custs.filter(c=>c.tQty>0&&c.tAmt>0).length, 12);
+      const rowsH = Math.max(150, shown*30+20);
+      detEl.innerHTML = `<div class="subsection-label" style="color:var(--ink);">Detailed customer breakdown</div>
+        <div class="chart-grid even" style="margin-bottom:10px;">
+          <div class="card card-pad"><div class="card-head"><div><div class="card-title">${titleCase(productFilter)} — top customers by year</div><div class="card-cap">Top 5 customers + others, ${dQ?'quantity':'sales value'} per year</div></div><div class="seg-toggle" id="tg-p4-det"></div></div>
+            <div class="chart-h tall" id="chart-det-stack"></div></div>
+          <div class="card card-pad"><div class="card-head"><div><div class="card-title">Average price per ${unit} by customer</div><div class="card-cap">Total sales ÷ total quantity, ${yearFilter==='ALL'?`${years[0]}–${years[years.length-1]}`:yearFilter}</div></div></div>
+            <div class="chart-h" id="chart-det-price" style="height:${Math.max(rowsH,260)}px;"></div></div>
+        </div>
+        <div class="card card-pad" style="margin-bottom:12px;"><div class="tbl-scroll"><table id="p4-det-table"></table></div></div>`;
+      makeMetricToggle('tg-p4-det', mDet, m=>{ mDet=m; render(); });
+      // stacked: top 5 + others
+      const top5 = custs.slice(0,5), rest = custs.slice(5);
+      const dColors = ['#5c8000','#8DB600','#333333','#999999','#8a3b2b'];
+      const src = c => years.map(y=> (dQ?c.qty:c.amt)[y]||0);
+      const series = top5.map((c,i)=>({label:titleCase(c.name), color:dColors[i], data:src(c)}));
+      if(rest.length) series.push({label:'Others', color:'#cfcfcf', data:years.map((_,yi)=>rest.reduce((s2,c)=>s2+src(c)[yi],0))});
+      drawBarChart('chart-det-stack', { labels:years, series, valueFmt: dQ ? ((v,full)=>full?NUM(v):NUM(v,{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})), highlightIndex: yearFilter==='ALL'?null:years.indexOf(yearFilter) });
+      // avg price
+      const pr = custs.filter(c=>c.tQty>0&&c.tAmt>0).map(c=>({name:c.name, v:c.tAmt/c.tQty})).sort((a,b)=>b.v-a.v).slice(0,12);
+      drawHBarChart('chart-det-price', { labels:pr.map(r=>titleCase(r.name)), values:pr.map(r=>r.v), color:C.olive, valueFmt:(v)=>'₱'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) });
+      // table
+      let th = '<thead><tr><th>Customer</th>' + years.map(y=>`<th class="r">${y} Qty</th><th class="r">${y} ₱</th>`).join('') + '<th class="r">Avg. price</th></tr></thead><tbody>';
+      custs.forEach(c=>{
+        th += `<tr><td class="name">${titleCase(c.name)}</td>` + years.map(y=>{
+          const hi = (yearFilter!=='ALL' && y===yearFilter) ? `style="background:${C.hoverTan};"` : '';
+          return `<td class="r num-font" ${hi}>${NUM(c.qty[y]||0)}</td><td class="r num-font" ${hi}>${PHP(c.amt[y]||0)}</td>`;
+        }).join('') + `<td class="r num-font">${c.tQty>0?'₱'+(c.tAmt/c.tQty).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td></tr>`;
+      });
+      document.getElementById('p4-det-table').innerHTML = th + '</tbody>';
     }
 
     function renderTable(list){
