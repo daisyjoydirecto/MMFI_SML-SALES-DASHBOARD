@@ -41,7 +41,7 @@
   a.btn{ text-decoration:none; display:inline-block; }
 
   /* ---- header ---- */
-  .hdr{ background:var(--ink); color:#f2f2f2; padding:14px 20px 12px; border-bottom:4px solid var(--olive); }
+  .hdr{ background:var(--ink); color:#f2f2f2; padding:14px 20px 12px 116px; border-bottom:4px solid var(--olive); }
   .hdr-inner{ max-width:none; margin:0 auto; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:14px; }
   .brand{ min-width:0; }
   .eyebrow{ font-size:10px; letter-spacing:.2em; color:var(--olive); margin-bottom:4px; text-transform:uppercase; }
@@ -63,10 +63,10 @@
   /* ---- quick nav ---- */
   .qnav-wrap{ background:var(--card); border-bottom:1px solid var(--line); }
   .sticky-top{ position:sticky; top:0; z-index:100; }
-  .qnav{ max-width:none; margin:0 auto; padding:6px 20px; display:flex; gap:8px; flex-wrap:wrap; }
+  .qnav{ max-width:none; margin:0 auto; padding:6px 20px 6px 116px; display:flex; gap:8px; flex-wrap:wrap; }
 
   /* ---- main ---- */
-  .wrap{ max-width:none; margin:0 auto; padding:10px 20px 60px; }
+  .wrap{ max-width:none; margin:0 auto; padding:10px 20px 60px 0; }
   .tier{ padding-top:4px; margin-top:0; scroll-margin-top:64px; display:none; }
   .tier.active{ display:block; }
   .section-title{ font-size:20px; font-weight:700; color:var(--ink); margin-bottom:2px; }
@@ -116,12 +116,15 @@
   .filters-block{ margin-bottom:16px; }
 
   /* ---- pinned filter sidebar ---- */
-  .tier-layout{ display:flex; gap:20px; align-items:flex-start; width:100%; }
+  .tier-layout{ display:flex; gap:20px; align-items:stretch; width:100%; }
   .tier-main{ flex:1 1 auto; width:100%; min-width:0; }
   .tier-sidebar{
-    flex:0 0 280px; width:280px; position:sticky; top:84px; align-self:flex-start;
+    flex:0 0 280px; width:280px;
     background:var(--card); border:1px solid var(--line); border-radius:4px;
-    padding:16px 16px 18px; max-height:calc(100vh - 100px); overflow-y:auto;
+  }
+  .tier-sidebar .sidebar-sticky{
+    position:sticky; top:84px; padding:16px 16px 18px;
+    max-height:calc(100vh - 100px); overflow-y:auto;
   }
   .tier-sidebar .section-title{ font-size:16px; line-height:1.25; }
   .tier-sidebar .section-sub{ font-size:11px; line-height:1.4; }
@@ -135,7 +138,8 @@
   .tier-sidebar select.btn{ width:100%; }
   @media (max-width: 900px){
     .tier-layout{ flex-direction:column; }
-    .tier-sidebar{ position:relative; top:auto; width:100%; flex:1 1 auto; max-height:none; }
+    .tier-sidebar{ width:100%; flex:1 1 auto; }
+    .tier-sidebar .sidebar-sticky{ position:relative; top:auto; max-height:none; }
     .tier-sidebar .filter-row{ flex-direction:row; align-items:center; margin-bottom:12px; }
     .tier-sidebar .filter-row .btnrow{ flex-direction:row; width:auto; gap:8px; }
     .tier-sidebar .filter-row .btnrow .btn{ width:auto; }
@@ -247,11 +251,13 @@
   <section class="tier active" id="t1">
     <div class="tier-layout">
       <aside class="tier-sidebar">
-        <div class="section-title">1. Overall Summary</div>
-        <div class="section-sub">Total revenue across every product line, company-wide</div>
-        <div class="sidebar-label">Filters</div>
-        <div class="filters-block">
-          <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="t1-year-pills"></div></div>
+        <div class="sidebar-sticky">
+          <div class="section-title">1. Overall Summary</div>
+          <div class="section-sub">Total revenue across every product line, company-wide</div>
+          <div class="sidebar-label">Filters</div>
+          <div class="filters-block">
+            <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="t1-year-pills"></div></div>
+          </div>
         </div>
       </aside>
       <div class="tier-main">
@@ -285,12 +291,14 @@
   <section class="tier" id="t2">
     <div class="tier-layout">
       <aside class="tier-sidebar">
-        <div class="section-title">2. Main Products</div>
-        <div class="section-sub" id="t2-sub">The company's core revenue lines</div>
-        <div class="sidebar-label">Filters</div>
-        <div class="filters-block">
-          <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
-          <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
+        <div class="sidebar-sticky">
+          <div class="section-title">2. Main Products</div>
+          <div class="section-sub" id="t2-sub">The company's core revenue lines</div>
+          <div class="sidebar-label">Filters</div>
+          <div class="filters-block">
+            <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
+            <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
+          </div>
         </div>
       </aside>
       <div class="tier-main">
@@ -331,12 +339,14 @@
   <section class="tier" id="t3">
     <div class="tier-layout">
       <aside class="tier-sidebar">
-        <div class="section-title">3. MCP &amp; By-Products</div>
-        <div class="section-sub">Meat-cut processing, swine and poultry by-products, partner-farm volumes, and miscellaneous sales lines</div>
-        <div class="sidebar-label">Filters</div>
-        <div class="filters-block">
-          <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p3-year-pills"></div></div>
-          <div class="filter-row"><span class="flabel">Category:</span><div class="btnrow" id="p3-cat-pills"></div></div>
+        <div class="sidebar-sticky">
+          <div class="section-title">3. MCP &amp; By-Products</div>
+          <div class="section-sub">Meat-cut processing, swine and poultry by-products, partner-farm volumes, and miscellaneous sales lines</div>
+          <div class="sidebar-label">Filters</div>
+          <div class="filters-block">
+            <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p3-year-pills"></div></div>
+            <div class="filter-row"><span class="flabel">Category:</span><div class="btnrow" id="p3-cat-pills"></div></div>
+          </div>
         </div>
       </aside>
       <div class="tier-main">
@@ -366,12 +376,14 @@
   <section class="tier" id="t4">
     <div class="tier-layout">
       <aside class="tier-sidebar">
-        <div class="section-title">4. Customers</div>
-        <div class="section-sub">Account-level performance from the YOY Sales-Customers ledger — concentration, growth, and product mix per buyer</div>
-        <div class="sidebar-label">Filters</div>
-        <div class="filters-block">
-          <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p4-year-pills"></div></div>
-          <div class="filter-row"><span class="flabel">Product:</span><select class="btn" id="p4-product-select"></select></div>
+        <div class="sidebar-sticky">
+          <div class="section-title">4. Customers</div>
+          <div class="section-sub">Account-level performance from the YOY Sales-Customers ledger — concentration, growth, and product mix per buyer</div>
+          <div class="sidebar-label">Filters</div>
+          <div class="filters-block">
+            <div class="filter-row"><span class="flabel">Year:</span><div class="btnrow" id="p4-year-pills"></div></div>
+            <div class="filter-row"><span class="flabel">Product:</span><select class="btn" id="p4-product-select"></select></div>
+          </div>
         </div>
       </aside>
       <div class="tier-main">
