@@ -742,6 +742,51 @@ function drawLineChart(containerId, {labels, series, valueFmt, area=false, legen
   }
 }
 
+function drawPieChart(containerId, {labels, values, valueFmt}){
+  const {svg, W, H} = initSvg(containerId);
+  const total = values.reduce((a,b)=>a+b,0);
+  if (!labels.length || total<=0){ svg.appendChild(el('text', {x:W/2, y:H/2, 'text-anchor':'middle', 'font-size':12, fill:C.greySoft}, 'No data for this selection')); return; }
+  const colors = ['#5c8000','#8DB600','#333333','#999999','#8a3b2b'];
+  const stacked = W < 460;
+  const pad = 10;
+  const size = stacked ? Math.min(W - 2*pad, H*0.52) : Math.min(H - 2*pad, W*0.42);
+  const R = size/2, r = R*0.58;
+  const cx = stacked ? W/2 : pad + R + 8, cy = stacked ? pad + R : H/2;
+  const polar = (a,rad)=>[cx + rad*Math.cos(a), cy + rad*Math.sin(a)];
+  let ang = -Math.PI/2;
+  values.forEach((v,i)=>{
+    const frac = v/total, a2 = ang + frac*2*Math.PI;
+    let d;
+    if (frac > 0.9999){
+      d = `M ${cx} ${cy-R} A ${R} ${R} 0 1 1 ${cx-0.01} ${cy-R} L ${cx-0.01} ${cy-r} A ${r} ${r} 0 1 0 ${cx} ${cy-r} Z`;
+    } else {
+      const [x1,y1]=polar(ang,R),[x2,y2]=polar(a2,R),[x3,y3]=polar(a2,r),[x4,y4]=polar(ang,r);
+      const large = frac>0.5?1:0;
+      d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${r} ${r} 0 ${large} 0 ${x4} ${y4} Z`;
+    }
+    const path = el('path', {d, fill:colors[i%colors.length], stroke:'#fff', 'stroke-width':2});
+    path.addEventListener('mousemove', e=>showTip(e, `<div class="tt-title">${labels[i]}</div><div class="tt-row"><span class="tt-swatch" style="background:${colors[i%colors.length]}"></span><strong>${valueFmt(v,true)}</strong> · ${(frac*100).toFixed(1)}%</div>`));
+    path.addEventListener('mouseleave', hideTip);
+    svg.appendChild(path);
+    ang = a2;
+  });
+  svg.appendChild(el('text', {x:cx, y:cy-2, 'text-anchor':'middle', 'font-size':11, fill:C.grey}, 'Top 5'));
+  svg.appendChild(el('text', {x:cx, y:cy+14, 'text-anchor':'middle', 'font-size':13, 'font-weight':'700', fill:C.ink}, valueFmt(total,false)));
+  // legend
+  const lx = stacked ? pad+4 : cx + R + 28, rowH = 38;
+  let ly = stacked ? cy + R + 22 : Math.max(pad+10, cy - (labels.length*rowH)/2 + 14);
+  const maxChars = Math.max(12, Math.floor(((stacked ? W-2*pad : W - lx - pad) - 22) / 6.2));
+  labels.forEach((lab,i)=>{
+    svg.appendChild(el('rect', {x:lx, y:ly-9, width:11, height:11, rx:2, fill:colors[i%colors.length]}));
+    const t = lab.length>maxChars ? lab.slice(0,maxChars-1)+'…' : lab;
+    const te = el('text', {x:lx+18, y:ly, 'font-size':11, fill:C.ink}, t);
+    if (t!==lab){ const ti=document.createElementNS(SVGNS,'title'); ti.textContent=lab; te.appendChild(ti); }
+    svg.appendChild(te);
+    svg.appendChild(el('text', {x:lx+18, y:ly+14, 'font-size':10.5, fill:C.grey, class:'num-font'}, `${valueFmt(values[i],true)} · ${(values[i]/total*100).toFixed(1)}%`));
+    ly += rowH;
+  });
+}
+
 function drawHBarChart(containerId, {labels, values, color, valueFmt}){
   const {svg, W, H} = initSvg(containerId);
   const isNarrow = W < 380;
@@ -1413,10 +1458,10 @@ function initTier3(){
 
     const tQ = mTop==='qty', tKey = tQ ? 'qty' : 'total';
     allItems.sort((a,b)=>b[tKey]-a[tKey]);
-    const topItems = allItems.filter(i=>i[tKey]>0).slice(0,10);
-    document.getElementById('p3-chart2-title').textContent = 'Top contributing line items';
-    document.getElementById('p3-chart2-cap').textContent = `Ranked by total ${yearRangeLabel} ${tQ?'quantity':'sales value'}${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
-    drawHBarChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i[tKey]), color:tQ?C.olive:C.oliveDark, valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
+    const topItems = allItems.filter(i=>i[tKey]>0).slice(0,5);
+    document.getElementById('p3-chart2-title').textContent = 'Top 5 contributing line items';
+    document.getElementById('p3-chart2-cap').textContent = `Share of the top 5 by total ${yearRangeLabel} ${tQ?'quantity':'sales value'}${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
+    drawPieChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i[tKey]), valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
 
     let html = '<div class="subsection-label" style="color:var(--ink);">Detailed category breakdown</div>';
     const grpCharts = [];
