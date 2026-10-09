@@ -128,8 +128,8 @@
     box-shadow:6px 0 24px rgba(92,128,0,.08);
   }
   .tier-sidebar .sidebar-sticky{
-    position:sticky; top:84px; padding:22px 22px 24px;
-    max-height:calc(100vh - 100px); overflow-y:auto; scrollbar-width:thin;
+    position:sticky; top:100px; padding:22px 22px 24px;
+    max-height:calc(100vh - 116px); overflow-y:auto; scrollbar-width:thin;
   }
   .tier-sidebar .section-title{ font-size:16px; line-height:1.25; }
   .tier-sidebar .section-sub{ font-size:11px; line-height:1.4; }
@@ -148,9 +148,24 @@
   .tier-sidebar .filter-row .btnrow .btn:hover{ background:#fff; color:var(--olive-dark); transform:translateX(5px); box-shadow:0 4px 12px rgba(92,128,0,.16); }
   .tier-sidebar .filter-row .btnrow .btn.active{
     background:linear-gradient(135deg,var(--olive) 0%,var(--olive-dark) 100%); color:#fff;
-    box-shadow:0 6px 16px rgba(92,128,0,.32); transform:translateX(5px);
+    box-shadow:0 6px 16px rgba(92,128,0,.32); transform:none;
   }
   .tier-sidebar .section-title{ letter-spacing:-.01em; }
+  .side-nav{ display:flex; flex-direction:column; gap:8px; padding-bottom:18px; margin-bottom:18px; background:linear-gradient(90deg,var(--olive),transparent) bottom/100% 2px no-repeat; }
+  .side-nav .btn{
+    width:100%; text-align:left; white-space:normal; border:1px solid transparent; background:rgba(255,255,255,.75);
+    border-radius:999px; padding:10px 18px; font-size:13px; font-weight:600; color:var(--ink-soft);
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+    transition:transform .25s cubic-bezier(.4,0,.2,1), background .25s, box-shadow .25s, color .25s;
+  }
+  .side-nav .btn:hover{ background:#fff; color:var(--olive-dark); transform:translateX(5px); box-shadow:0 4px 12px rgba(92,128,0,.16); }
+  .side-nav .btn.active{ background:linear-gradient(135deg,var(--olive) 0%,var(--olive-dark) 100%); color:#fff; box-shadow:0 6px 16px rgba(92,128,0,.32); }
+  .card-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .card-head > div:first-child{ min-width:0; flex:1 1 180px; }
+  .seg-toggle{ display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:3px; background:#fff; flex-shrink:0; }
+  .seg{ border:0; background:transparent; font-family:inherit; font-size:11.5px; padding:6px 14px; border-radius:999px; cursor:pointer; color:var(--grey); transition:background .2s,color .2s; white-space:nowrap; }
+  .seg:hover{ color:var(--ink); }
+  .seg.on{ background:var(--ink); color:#fff; }
   .tier-sidebar .sidebar-label{ border-bottom:0; background:linear-gradient(90deg,var(--olive),transparent) bottom/100% 2px no-repeat; }
   .tier-sidebar select.btn{ border-radius:999px; padding:8px 30px 8px 16px; background-color:rgba(255,255,255,.8); }
   .tier-sidebar select.btn{ width:100%; }
@@ -158,6 +173,8 @@
     .tier-layout{ flex-direction:column; }
     .tier-sidebar{ width:100%; flex:1 1 auto; border-radius:0 0 22px 22px; border-right:0; }
     .tier-sidebar .sidebar-sticky{ position:relative; top:auto; max-height:none; }
+    .side-nav{ flex-direction:row; flex-wrap:wrap; }
+    .side-nav .btn{ width:auto; }
     .tier-sidebar .filter-row{ flex-direction:row; align-items:center; margin-bottom:12px; }
     .tier-sidebar .filter-row .btnrow{ flex-direction:row; width:auto; gap:8px; }
     .tier-sidebar .filter-row .btnrow .btn{ width:auto; }
@@ -249,14 +266,6 @@
   </div>
 </header>
 
-<div class="qnav-wrap">
-  <nav class="qnav">
-    <button class="btn active" data-tier="t1">1. Overview</button>
-    <button class="btn" data-tier="t2">2. Main Products</button>
-    <button class="btn" data-tier="t3">3. MCP &amp; By-Products</button>
-    <button class="btn" data-tier="t4">4. Customers</button>
-  </nav>
-</div>
 </div>
 
 
@@ -325,13 +334,17 @@
 
         <div class="chart-grid even">
           <div class="card card-pad">
-            <div class="card-title" id="p2-qty-title">Annual quantity</div>
-            <div class="card-cap" id="p2-qty-cap">Units per year</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="p2-qty-title">Annual quantity</div>
+              <div class="card-cap" id="p2-qty-cap">Units per year</div>
+            </div><div class="seg-toggle" id="tg-p2-monthly"></div></div>
             <div class="chart-h tall" id="chart-product-qty"></div>
           </div>
           <div class="card card-pad">
-            <div class="card-title">Annual sales value</div>
-            <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="p2-annual-title">Annual sales value</div>
+              <div class="card-cap" id="p2-value-cap">Total PHP per year</div>
+            </div><div class="seg-toggle" id="tg-p2-annual"></div></div>
             <div class="chart-h tall" id="chart-product-annual"></div>
           </div>
         </div>
@@ -343,8 +356,10 @@
             <div class="chart-h tall" id="chart-product-rate"></div>
           </div>
           <div class="card card-pad">
-            <div class="card-title" id="p2-detail-title">Year-by-year detail</div>
-            <div class="card-cap" id="p2-detail-cap">No monthly breakdown in source data</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="p2-detail-title">Year-by-year detail</div>
+              <div class="card-cap" id="p2-detail-cap">No monthly breakdown in source data</div>
+            </div><div class="seg-toggle" id="tg-p2-heat"></div></div>
             <div id="p2-detail-content"></div>
           </div>
         </div>
@@ -378,8 +393,10 @@
             <div class="chart-h tall" id="chart-mcp-groups"></div>
           </div>
           <div class="card card-pad">
-            <div class="card-title" id="p3-chart2-title">Top contributing line items</div>
-            <div class="card-cap" id="p3-chart2-cap">Ranked by total sales value</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="p3-chart2-title">Top contributing line items</div>
+              <div class="card-cap" id="p3-chart2-cap">Ranked by total sales value</div>
+            </div><div class="seg-toggle" id="tg-p3-top"></div></div>
             <div class="chart-h tall" id="chart-mcp-top"></div>
           </div>
         </div>
@@ -410,13 +427,17 @@
 
         <div class="chart-grid even">
           <div class="card card-pad">
-            <div class="card-title" id="p4-chart1-title">Top 12 customers</div>
-            <div class="card-cap" id="p4-chart1-cap">By total sales value</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="p4-chart1-title">Top 12 customers</div>
+              <div class="card-cap" id="p4-chart1-cap">By total sales value</div>
+            </div><div class="seg-toggle" id="tg-p4-cust"></div></div>
             <div class="chart-h tall" id="chart-cust-top"></div>
           </div>
           <div class="card card-pad">
-            <div class="card-title" id="p4-chart2-title">Top products across customers</div>
-            <div class="card-cap" id="p4-chart2-cap">By total sales value</div>
+            <div class="card-head"><div>
+              <div class="card-title" id="p4-chart2-title">Top products across customers</div>
+              <div class="card-cap" id="p4-chart2-cap">By total sales value</div>
+            </div><div class="seg-toggle" id="tg-p4-prod"></div></div>
             <div class="chart-h tall" id="chart-cust-products"></div>
           </div>
         </div>
@@ -543,6 +564,14 @@ function makePills(containerId, items, activeValue, onSelect){
       onSelect(btn.dataset.v);
     });
   });
+}
+function makeMetricToggle(id, current, onChange){
+  const el = document.getElementById(id); if(!el) return;
+  el.innerHTML = `<button class="seg ${current==='amount'?'on':''}" data-m="amount">Amount (₱)</button><button class="seg ${current==='qty'?'on':''}" data-m="qty">Quantity</button>`;
+  el.querySelectorAll('.seg').forEach(b=>b.addEventListener('click',()=>{
+    el.querySelectorAll('.seg').forEach(x=>x.classList.toggle('on',x===b));
+    onChange(b.dataset.m);
+  }));
 }
 function makeSelect(containerId, items, activeValue, onSelect){
   const sel = document.getElementById(containerId);
@@ -1110,6 +1139,10 @@ function initTier2(){
   const years = DATA.years;
   let currentProduct = mains[0] && mains[0].product;
   let currentYear = 'ALL';
+  let mAnnual='amount', mMonthly='qty', mHeat='qty';
+  makeMetricToggle('tg-p2-annual', mAnnual, m=>{ mAnnual=m; render(); });
+  makeMetricToggle('tg-p2-monthly', mMonthly, m=>{ mMonthly=m; render(); });
+  makeMetricToggle('tg-p2-heat', mHeat, m=>{ mHeat=m; render(); });
 
   document.getElementById('t2-sub').textContent = mains.map(p=>titleCase(p.product)).join(', ') + " — the company's core revenue lines";
 
@@ -1229,22 +1262,26 @@ function initTier2(){
         <div class="delta ${k.dir==='up'?'up':k.dir==='down'?'down':''}">${k.delta}</div></div>
     `).join('');
 
-    document.getElementById('p2-value-cap').textContent = 'Total PHP per year' + (!isAll ? ` — ${focusY} bold` : '');
-    drawBarChart('chart-product-annual', { labels:years, series:[{label:'Sales value', color:C.oliveDark, data:amts}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:focusIdx });
+    const aQ = mAnnual==='qty';
+    document.getElementById('p2-annual-title').textContent = aQ ? `Annual quantity (${unit})` : 'Annual sales value';
+    document.getElementById('p2-value-cap').textContent = (aQ ? `${unit} per year` : 'Total PHP per year') + (!isAll ? ` — ${focusY} bold` : '');
+    drawBarChart('chart-product-annual', { labels:years, series:[{label:aQ?'Quantity':'Sales value', color:aQ?C.olive:C.oliveDark, data:aQ?qtys:amts}], valueFmt: aQ ? ((v,full)=>full?NUM(v):NUM(v,{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})), legend:false, highlightIndex:focusIdx });
+    document.getElementById('tg-p2-heat').style.display = hasMonthly ? '' : 'none';
 
     if(hasMonthly){
       // ---- Top-left: real monthly overlay across years ----
-      document.getElementById('p2-qty-title').textContent = `Monthly ${unit.toLowerCase()} by year`;
+      const mQ = mMonthly==='qty', mSrc = mQ ? monthlyQty : monthlyAmt;
+      document.getElementById('p2-qty-title').textContent = mQ ? `Monthly ${unit.toLowerCase()} by year` : 'Monthly sales value by year';
       document.getElementById('p2-qty-cap').textContent = isAll
         ? `${titleCase(p.product)} — all years overlaid, ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`
         : `${titleCase(p.product)} — ${focusY} highlighted against ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
       drawLineChart('chart-product-qty', {
         labels: MONTH_ABBR,
         series: monthlyYears.map((y,yi)=> isAll
-          ? { label:y, color: YEAR_PALETTE[yi % YEAR_PALETTE.length], bold:false, opacity:1, showPoints:true, data: MONTH_ABBR.map((_,mi)=> (monthlyQty[y]||{})[mi] ?? null) }
-          : { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY, data: MONTH_ABBR.map((_,mi)=> (monthlyQty[y]||{})[mi] ?? null) }
+          ? { label:y, color: YEAR_PALETTE[yi % YEAR_PALETTE.length], bold:false, opacity:1, showPoints:true, data: MONTH_ABBR.map((_,mi)=> (mSrc[y]||{})[mi] ?? null) }
+          : { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY, data: MONTH_ABBR.map((_,mi)=> (mSrc[y]||{})[mi] ?? null) }
         ),
-        valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), legend:true
+        valueFmt: mQ ? ((v,full)=>full?NUM(v):NUM(v,{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})), legend:true
       });
 
       // ---- Bottom-left: monthly avg rate overlay ----
@@ -1266,17 +1303,19 @@ function initTier2(){
 
       // ---- Bottom-right: seasonality heatmap ----
       document.getElementById('p2-detail-title').textContent = 'Seasonality heatmap';
-      document.getElementById('p2-detail-cap').textContent = `Monthly ${unit.toLowerCase()} intensity by year`;
+      const hQ = mHeat==='qty', hSrc = hQ ? monthlyQty : monthlyAmt;
+      const hFmt = v => hQ ? NUM(v,{compact:true}) : PHP(v,{compact:true});
+      document.getElementById('p2-detail-cap').textContent = `Monthly ${hQ?unit.toLowerCase():'sales value'} intensity by year`;
       let maxCell = 0;
-      monthlyYears.forEach(y=> MONTH_ABBR.forEach((_,mi)=>{ const v=(monthlyQty[y]||{})[mi]||0; if(v>maxCell) maxCell=v; }));
+      monthlyYears.forEach(y=> MONTH_ABBR.forEach((_,mi)=>{ const v=(hSrc[y]||{})[mi]||0; if(v>maxCell) maxCell=v; }));
       let hm = '<div class="tbl-scroll"><table class="heatmap-table"><thead><tr><th class="yr"></th>' + MONTH_ABBR.map(m=>`<th>${m}</th>`).join('') + '</tr></thead><tbody>';
       monthlyYears.forEach(y=>{
         hm += `<tr class="${(!isAll && y===focusY)?'focus-row':''}"><td class="yr">${y}</td>`;
         MONTH_ABBR.forEach((_,mi)=>{
-          const v = (monthlyQty[y]||{})[mi] || 0;
+          const v = (hSrc[y]||{})[mi] || 0;
           const bg = heatColor(v, maxCell);
           const light = v/maxCell < 0.55;
-          hm += `<td style="background:${bg};color:${v? (light?'#333':'#fff8f0') : '#b8b8ae'};">${v?NUM(v,{compact:true}):'—'}</td>`;
+          hm += `<td style="background:${bg};color:${v? (light?'#333':'#fff8f0') : '#b8b8ae'};">${v?hFmt(v):'—'}</td>`;
         });
         hm += '</tr>';
       });
@@ -1284,9 +1323,10 @@ function initTier2(){
       document.getElementById('p2-detail-content').innerHTML = hm;
     } else {
       // ---- Fallback: no monthly source for this product, annual-only view ----
-      document.getElementById('p2-qty-title').textContent = `Annual volume (${unit})`;
-      document.getElementById('p2-qty-cap').textContent = 'Units per year' + (!isAll ? ` — ${focusY} bold` : '');
-      drawLineChart('chart-product-qty', { labels:years, series:[{label:'Volume', color:C.olive, bold:true, data:qtys}], valueFmt:(v,full)=>full?NUM(v):NUM(v,{compact:true}), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
+      const fQ = mMonthly==='qty';
+      document.getElementById('p2-qty-title').textContent = fQ ? `Annual volume (${unit})` : 'Annual sales value';
+      document.getElementById('p2-qty-cap').textContent = (fQ ? 'Units per year' : 'Total PHP per year') + (!isAll ? ` — ${focusY} bold` : '');
+      drawLineChart('chart-product-qty', { labels:years, series:[{label:fQ?'Volume':'Sales value', color:C.olive, bold:true, data:fQ?qtys:amts}], valueFmt: fQ ? ((v,full)=>full?NUM(v):NUM(v,{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-rate-title').textContent = 'Average unit rate';
       document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (!isAll ? `, ${focusY} bold` : '');
@@ -1312,7 +1352,8 @@ function initTier3(){
   const nonMain = DATA.products.filter(p=>!p.category.toUpperCase().includes('MAIN PRODUCT'));
   const groupNames = DATA.categories.filter(c=>!c.toUpperCase().includes('MAIN PRODUCT'));
 
-  let yearFilter='ALL', catFilter='ALL';
+  let yearFilter='ALL', catFilter='ALL', mTop='amount';
+  makeMetricToggle('tg-p3-top', mTop, m=>{ mTop=m; render(); });
   makePills('p3-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
   makePills('p3-cat-pills', [{value:'ALL',label:'All Categories'}, ...groupNames.map(g=>({value:g,label:titleCase(g)}))], catFilter, v=>{ catFilter=v; render(); });
 
@@ -1344,8 +1385,8 @@ function initTier3(){
     }
 
     let allItems = [];
-    scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const total=itemTotal(item,yrs); if(total>0) allItems.push({name:item.product, group:g, total}); }));
-    const activeLineItems = allItems.length;
+    scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const total=itemTotal(item,yrs); const qty=yrs.reduce((s2,y)=>s2+((item.years[y]||{}).qty||0),0); if(total>0||qty>0) allItems.push({name:item.product, group:g, total, qty}); }));
+    const activeLineItems = allItems.filter(i=>i.total>0).length;
     const yearRangeLabel = yearFilter==='ALL' ? `${years[0]}–${years[years.length-1]}` : String(focusYear);
     const catLabel = catFilter==='ALL' ? 'All Categories' : titleCase(catFilter);
 
@@ -1365,11 +1406,12 @@ function initTier3(){
       drawBarChart('chart-mcp-groups', { labels:years, series:[{label:titleCase(catFilter), color:DATA.catColor[catFilter], data:years.map(y=>groupTotalForYears(catFilter,[y]))}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex:hIdx });
     }
 
-    allItems.sort((a,b)=>b.total-a.total);
-    const topItems = allItems.slice(0,10);
+    const tQ = mTop==='qty', tKey = tQ ? 'qty' : 'total';
+    allItems.sort((a,b)=>b[tKey]-a[tKey]);
+    const topItems = allItems.filter(i=>i[tKey]>0).slice(0,10);
     document.getElementById('p3-chart2-title').textContent = 'Top contributing line items';
-    document.getElementById('p3-chart2-cap').textContent = `Ranked by total ${yearRangeLabel} sales value${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
-    drawHBarChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i.total), color:C.oliveDark, valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}) });
+    document.getElementById('p3-chart2-cap').textContent = `Ranked by total ${yearRangeLabel} ${tQ?'quantity':'sales value'}${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
+    drawHBarChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i[tKey]), color:tQ?C.olive:C.oliveDark, valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
 
     let html = '';
     scopedGroups.forEach(g=>{
@@ -1400,7 +1442,9 @@ function initTier4(){
   const years = DATA.years;
   const products = Array.from(new Set(DATA.customers.map(c=>c.product))).sort();
 
-  let yearFilter='ALL', productFilter='ALL';
+  let yearFilter='ALL', productFilter='ALL', mCust='amount', mProd='amount';
+  makeMetricToggle('tg-p4-cust', mCust, m=>{ mCust=m; render(); });
+  makeMetricToggle('tg-p4-prod', mProd, m=>{ mProd=m; render(); });
   makePills('p4-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], yearFilter, v=>{ yearFilter=v; render(); });
   makeSelect('p4-product-select', [{value:'ALL',label:'All Products'}, ...products.map(p=>({value:p,label:titleCase(p)}))], productFilter, v=>{ productFilter=v; render(); });
 
@@ -1408,6 +1452,11 @@ function initTier4(){
     const lines = DATA.customers.filter(x=>x.customer===c.customer && (product==='ALL'||x.product===product));
     if(year==='ALL') return lines.reduce((s,l)=> s+years.reduce((s2,y)=>s2+((l.years[y]||{}).amount||0),0), 0);
     return lines.reduce((s,l)=> s+((l.years[year]||{}).amount||0), 0);
+  }
+  function custQty(c, product, year){
+    const lines = DATA.customers.filter(x=>x.customer===c.customer && (product==='ALL'||x.product===product));
+    const ys = year==='ALL' ? years : [year];
+    return lines.reduce((s,l)=> s+ys.reduce((s2,y)=>s2+((l.years[y]||{}).qty||0),0), 0);
   }
   function custYearlyAmounts(c, product){
     const lines = DATA.customers.filter(x=>x.customer===c.customer && (product==='ALL'||x.product===product));
@@ -1439,24 +1488,29 @@ function initTier4(){
       <div class="card kpi" style="border-top:3px solid ${C.inkSoft};"><div class="lbl">Top‑5 Concentration</div><div class="val num-font">${concentration.toFixed(0)}%</div><div class="delta">· of scoped revenue</div></div>
     `;
 
+    const cQ = mCust==='qty';
     document.getElementById('p4-chart1-title').textContent = 'Top 12 customers';
-    document.getElementById('p4-chart1-cap').textContent = `By sales value — ${scopeLabel}`;
-    const top12 = filtered.slice(0,12);
-    drawHBarChart('chart-cust-top', { labels:top12.map(x=>titleCase(x.c.customer)), values:top12.map(x=>x.amt), color:C.oliveDark, valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}) });
+    document.getElementById('p4-chart1-cap').textContent = cQ ? `By quantity${productFilter==='ALL'?' (units vary by product)':''} — ${scopeLabel}` : `By sales value — ${scopeLabel}`;
+    const ranked = cQ ? uniqueCustomers.map(c=>({c, amt: custQty(c, productFilter, yearFilter)})).filter(x=>x.amt>0).sort((a,b)=>b.amt-a.amt) : filtered;
+    const top12 = ranked.slice(0,12);
+    drawHBarChart('chart-cust-top', { labels:top12.map(x=>titleCase(x.c.customer)), values:top12.map(x=>x.amt), color:cQ?C.olive:C.oliveDark, valueFmt: cQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
 
+    const pQ = mProd==='qty', pKey = pQ ? 'qty' : 'amount';
+    const pFmt = pQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true}));
+    const yearVal = (l,y)=> ((l.years[y]||{})[pKey]||0);
     if(productFilter==='ALL'){
       document.getElementById('p4-chart2-title').textContent = 'Top products across customers';
-      document.getElementById('p4-chart2-cap').textContent = `By sales value — ${yearFilter==='ALL'?'all years':yearFilter}`;
+      document.getElementById('p4-chart2-cap').textContent = `By ${pQ?'quantity':'sales value'} — ${yearFilter==='ALL'?'all years':yearFilter}`;
       const byProd = {};
-      DATA.customers.forEach(l=>{ const v = yearFilter==='ALL' ? years.reduce((s,y)=>s+((l.years[y]||{}).amount||0),0) : ((l.years[yearFilter]||{}).amount||0); byProd[l.product]=(byProd[l.product]||0)+v; });
+      DATA.customers.forEach(l=>{ const v = yearFilter==='ALL' ? years.reduce((s,y)=>s+yearVal(l,y),0) : yearVal(l,yearFilter); byProd[l.product]=(byProd[l.product]||0)+v; });
       const scored = Object.entries(byProd).map(([name,val])=>({name,val})).filter(p=>p.val>0).sort((a,b)=>b.val-a.val).slice(0,10);
-      drawHBarChart('chart-cust-products', { labels:scored.map(p=>titleCase(p.name)), values:scored.map(p=>p.val), color:C.olive, valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}) });
+      drawHBarChart('chart-cust-products', { labels:scored.map(p=>titleCase(p.name)), values:scored.map(p=>p.val), color:C.olive, valueFmt:pFmt });
     } else {
       document.getElementById('p4-chart2-title').textContent = `${titleCase(productFilter)} — yearly trend`;
-      document.getElementById('p4-chart2-cap').textContent = 'Total sales value per year, all customers';
+      document.getElementById('p4-chart2-cap').textContent = pQ ? 'Total quantity per year, all customers' : 'Total sales value per year, all customers';
       const lines = DATA.customers.filter(l=>l.product===productFilter);
-      const vals = years.map(y=> lines.reduce((s,l)=>s+((l.years[y]||{}).amount||0),0));
-      drawBarChart('chart-cust-products', { labels:years, series:[{label:titleCase(productFilter), color:C.olive, data:vals}], valueFmt:(v,full)=>full?PHP(v):PHP(v,{compact:true}), legend:false, highlightIndex: yearFilter==='ALL'?null:years.indexOf(yearFilter) });
+      const vals = years.map(y=> lines.reduce((s,l)=>s+yearVal(l,y),0));
+      drawBarChart('chart-cust-products', { labels:years, series:[{label:titleCase(productFilter), color:C.olive, data:vals}], valueFmt:pFmt, legend:false, highlightIndex: yearFilter==='ALL'?null:years.indexOf(yearFilter) });
     }
 
     function renderTable(list){
@@ -1489,12 +1543,17 @@ function initTier4(){
   render();
 }
 
-/* ---------------- tab switching ---------------- */
-document.querySelectorAll('.qnav .btn').forEach(btn=>{
+/* ---------------- tab switching (nav lives inside each tier's sidebar) ---------------- */
+const NAV_ITEMS = [['t1','1. Overview'],['t2','2. Main Products'],['t3','3. MCP &amp; By-Products'],['t4','4. Customers']];
+document.querySelectorAll('.tier').forEach(tier=>{
+  const host = tier.querySelector('.sidebar-sticky'); if(!host) return;
+  const nav = document.createElement('nav'); nav.className = 'side-nav';
+  nav.innerHTML = NAV_ITEMS.map(([id,l])=>`<button class="btn ${id===tier.id?'active':''}" data-tier="${id}">${l}</button>`).join('');
+  host.insertBefore(nav, host.firstChild);
+});
+document.querySelectorAll('.side-nav .btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.qnav .btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tier').forEach(t=>t.classList.remove('active'));
-    btn.classList.add('active');
     document.getElementById(btn.dataset.tier).classList.add('active');
     CHART_REGISTRY.forEach(fn=>fn());
   });
