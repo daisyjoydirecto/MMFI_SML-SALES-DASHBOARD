@@ -266,6 +266,7 @@
     <button class="btn" data-tier="t2">2. Main Products</button>
     <button class="btn" data-tier="t3">3. MCP &amp; By-Products</button>
     <button class="btn" data-tier="t4">4. Customers</button>
+    <button class="btn" data-tier="t5">5. Analysis</button>
   </nav>
 </div>
 
@@ -408,6 +409,32 @@
 
         <div id="p3-groups"></div>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- TIER 5 : external analysis dashboards -->
+  <section class="tier" id="t5">
+    <div class="tier-layout">
+      <aside class="tier-sidebar">
+        <div class="sidebar-sticky">
+          <div class="section-title">5. Analysis</div>
+          <div class="section-sub">Companion analysis dashboards — pick one to view it here</div>
+          <div class="sidebar-label">Filters</div>
+          <div class="filters-block">
+            <div class="filter-row"><span class="flabel">Analysis:</span><div class="btnrow" id="p5-pills"></div></div>
+          </div>
+        </div>
+      </aside>
+      <div class="tier-main">
+        <div class="card card-pad" style="padding-bottom:16px;">
+          <div class="card-head"><div>
+            <div class="card-title" id="p5-title">Hatchability</div>
+            <div class="card-cap" id="p5-cap"></div>
+          </div><a class="seg-toggle" id="p5-open" href="#" target="_blank" rel="noopener" style="text-decoration:none;"><span class="seg on">Open in new tab ↗</span></a></div>
+          <iframe id="p5-frame" title="Analysis dashboard" loading="lazy" style="width:100%; height:calc(100vh - 230px); min-height:560px; border:1px solid var(--line); border-radius:10px; background:#fff; margin-top:10px;"></iframe>
+          <div class="card-cap" style="margin-top:8px;">If the page stays blank, your browser or the host is blocking embedding — use “Open in new tab”.</div>
+        </div>
       </div>
     </div>
   </section>
@@ -1665,6 +1692,37 @@ function initTier4(){
   registerChart(render);
   render();
 }
+
+/* ---------------- Tier 5: embedded analysis dashboards ---------------- */
+(function initTier5(){
+  const ITEMS = [
+    {key:'hatch', label:'Hatchability',     url:'https://daisyjoydirecto.github.io/hatchability-update/', cap:'Hatchery performance — hatchability & chick quality'},
+    {key:'sal',   label:'MCP-Salary Deduct', url:'https://daisyjoydirecto.github.io/salary_deduct',        cap:'Meat Cutting Plant — salary deduction analysis'}
+  ];
+  const pills = document.getElementById('p5-pills');
+  const frame = document.getElementById('p5-frame');
+  let cur = null;
+  function select(it){
+    cur = it.key;
+    pills.querySelectorAll('.btn').forEach(b=>b.classList.toggle('active', b.dataset.key===it.key));
+    document.getElementById('p5-title').textContent = it.label;
+    document.getElementById('p5-cap').textContent = it.cap;
+    document.getElementById('p5-open').href = it.url;
+    if(frame.dataset.loaded !== it.key){ frame.src = it.url; frame.dataset.loaded = it.key; }
+  }
+  ITEMS.forEach(it=>{
+    const b = document.createElement('button');
+    b.className = 'btn'; b.dataset.key = it.key; b.textContent = it.label;
+    b.addEventListener('click', ()=>select(it));
+    pills.appendChild(b);
+  });
+  // only load the iframe once the tab is first opened
+  document.querySelector('.qnav .btn[data-tier="t5"]').addEventListener('click', ()=>{ if(!cur) select(ITEMS[0]); });
+  // set labels/active state now without loading anything
+  pills.firstChild.classList.add('active');
+  document.getElementById('p5-open').href = ITEMS[0].url;
+  document.getElementById('p5-cap').textContent = ITEMS[0].cap;
+})();
 
 /* ---------------- tab switching ---------------- */
 document.querySelectorAll('.qnav .btn').forEach(btn=>{
