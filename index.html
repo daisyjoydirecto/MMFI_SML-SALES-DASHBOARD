@@ -89,6 +89,7 @@
   .card-cap{ font-size:11px; color:var(--grey); margin-bottom:7px; }
   .chart-h{ height:230px; position:relative; margin-bottom:6px; }
   .chart-h.tall{ height:260px; }
+  .chart-h.tall.fill{ height:clamp(340px, calc(100vh - 340px), 640px); }
   .chart-h.short{ height:190px; }
   .chart-h svg{ display:block; }
 
@@ -1419,6 +1420,7 @@ function initTier3(){
 
   function render(){
     const yrs = scopeYears();
+    ['chart-mcp-groups','chart-mcp-top'].forEach(id=>document.getElementById(id).classList.toggle('fill', catFilter==='ALL'));
     const scopedGroups = catFilter==='ALL' ? groupNames : [catFilter];
     const grandTotal = scopedGroups.reduce((s,g)=> s+groupTotalForYears(g,yrs), 0);
 
