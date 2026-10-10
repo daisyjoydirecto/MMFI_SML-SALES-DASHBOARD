@@ -1266,12 +1266,19 @@ function initTier2(){
       matchedFarmKey = farmKeys[0] || null;
       block = matchedFarmKey ? farmBlocksAll[matchedFarmKey] : null;
     } else {
-      matchedFarmKey = farmKeys.find(k => (p.product||'').toUpperCase().startsWith(farmLabel(k).toUpperCase())) || null;
+      matchedFarmKey = farmKeys.find(k => (p.product||'').toUpperCase().includes(farmLabel(k).toUpperCase())) || null;
       block = matchedFarmKey ? farmBlocksAll[matchedFarmKey] : combineMonthlyBlocks(farmKeys.map(k=>farmBlocksAll[k]));
     }
     const qtyMetric = blockKey ? monthlyQtyMetricFor(blockKey) : null;
-    const monthlyQty = block ? (block[qtyMetric]||{}) : {};
+    const hasData = src => years.some(y=> src && src[y] && Object.values(src[y]).some(v=>v>0));
+    let monthlyQty = block ? (block[qtyMetric]||{}) : {};
     const monthlyAmt = block ? (block[MONTHLY_AMOUNT_METRIC]||{}) : {};
+    // Hogs/cattle: if the HEADS table is empty but KILOS or PESO figures exist, still show the monthly view.
+    let mUnit = unit;
+    if(block && !hasData(monthlyQty)){
+      if(hasData(block['QUANTITY (KILOS)'])){ monthlyQty = block['QUANTITY (KILOS)']; mUnit = 'kilos'; }
+      else if(hasData(monthlyAmt)){ monthlyQty = monthlyAmt; mUnit = 'sales'; }
+    }
     const monthlyYears = years.filter(y=> monthlyQty[y] && Object.values(monthlyQty[y]).some(v=>v>0));
     const hasMonthly = monthlyYears.length > 0;
 
@@ -1315,7 +1322,7 @@ function initTier2(){
         const monthTotals = new Array(12).fill(0);
         monthlyYears.forEach(y=>{ const md=monthlyQty[y]||{}; for(let m=0;m<12;m++) monthTotals[m]+=(md[m]||0); });
         const bestM = monthTotals.indexOf(Math.max(...monthTotals));
-        kpi4 = {lbl:'Peak Month (All Years)', val:MONTH_ABBR[bestM], delta:`· ${NUM(monthTotals[bestM],{compact:true})} ${unit} combined`};
+        kpi4 = {lbl:'Peak Month (All Years)', val:MONTH_ABBR[bestM], delta:`· ${NUM(monthTotals[bestM],{compact:true})} ${mUnit} combined`};
       } else {
         kpi4 = {lbl:'Years Tracked', val:String(years.length), delta:`· ${years[0]}–${years[years.length-1]}`};
       }
@@ -1333,7 +1340,7 @@ function initTier2(){
         let best=-1, bestIdx=null;
         for(let m=0;m<12;m++){ const v=md[m]||0; if(v>best){ best=v; bestIdx=m; } }
         kpi4 = (bestIdx!==null && best>0)
-          ? {lbl:`Peak Month, ${peakYear}`, val:MONTH_ABBR[bestIdx], delta:`· ${NUM(best,{compact:true})} ${unit}`}
+          ? {lbl:`Peak Month, ${peakYear}`, val:MONTH_ABBR[bestIdx], delta:`· ${NUM(best,{compact:true})} ${mUnit}`}
           : {lbl:'All-Time Revenue', val:PHP(totalAmt,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`};
       } else {
         kpi4 = {lbl:'All-Time Revenue', val:PHP(totalAmt,{compact:true}), delta:`· ${years[0]}–${years[years.length-1]}`};
@@ -1360,7 +1367,7 @@ function initTier2(){
     if(hasMonthly){
       // ---- Top-left: real monthly overlay across years ----
       const mQ = mMonthly==='qty', mSrc = mQ ? monthlyQty : monthlyAmt;
-      document.getElementById('p2-qty-title').textContent = mQ ? `Monthly ${unit.toLowerCase()} by year` : 'Monthly sales value by year';
+      document.getElementById('p2-qty-title').textContent = mQ ? `Monthly ${mUnit.toLowerCase()} by year` : 'Monthly sales value by year';
       document.getElementById('p2-qty-cap').textContent = isAll
         ? `${titleCase(p.product)} — all years overlaid, ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`
         : `${titleCase(p.product)} — ${focusY} highlighted against ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
@@ -1394,7 +1401,7 @@ function initTier2(){
       document.getElementById('p2-detail-title').textContent = 'Seasonality heatmap';
       const hQ = mHeat==='qty', hSrc = hQ ? monthlyQty : monthlyAmt;
       const hFmt = v => hQ ? NUM(v,{compact:true}) : PHP(v,{compact:true});
-      document.getElementById('p2-detail-cap').textContent = `Monthly ${hQ?unit.toLowerCase():'sales value'} intensity by year`;
+      document.getElementById('p2-detail-cap').textContent = `Monthly ${hQ?mUnit.toLowerCase():'sales value'} intensity by year`;
       let maxCell = 0;
       monthlyYears.forEach(y=> MONTH_ABBR.forEach((_,mi)=>{ const v=(hSrc[y]||{})[mi]||0; if(v>maxCell) maxCell=v; }));
       let hm = '<div class="tbl-scroll"><table class="heatmap-table"><thead><tr><th class="yr"></th>' + MONTH_ABBR.map(m=>`<th>${m}</th>`).join('') + '</tr></thead><tbody>';
