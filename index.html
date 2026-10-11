@@ -931,7 +931,7 @@ function parseProducts(rows){
     if(!label) continue;
     const hasData = cols.some(({c})=> cellStr(row[c]) && cellStr(row[c])!=='-');
     if(!hasData){ category = label; continue; }
-    const entry = {category, product:label, years:{}};
+    const entry = {category, product:label, uom:cellStr(row[1]), years:{}};   // column B = UoM (hds., pcs., kgs., chicks)
     cols.forEach(({c,year,type})=>{
       if(!entry.years[year]) entry.years[year]={qty:0, amount:0};
       entry.years[year][type.toLowerCase()] = cellNum(row[c]);
@@ -1105,8 +1105,19 @@ function buildCategoryPalette(){
   DATA.catColor = {};
   cats.forEach((c,i)=> DATA.catColor[c] = CAT_PALETTE[i % CAT_PALETTE.length]);
 }
+// Unit of measure comes from the UoM column (B) of the YEARLY SALES-PRODUCTS sheet
+// (hds. / pcs. / kgs. / chicks); falls back to a trailing "(UNIT)" in the name.
+function uomDisplay(u){
+  const s = (u||'').trim().replace(/\.$/,'').toLowerCase();
+  if(!s) return '';
+  const map = {hds:'Heads', hd:'Heads', head:'Heads', heads:'Heads', pcs:'Pcs', pc:'Pcs', kgs:'Kgs', kg:'Kgs', chicks:'Chicks', chick:'Chicks'};
+  return map[s] || (s.charAt(0).toUpperCase()+s.slice(1));
+}
 function unitLabel(productName){
-  const m = productName.match(/\(([^)]+)\)\s*$/);
+  const key = (productName||'').trim().toUpperCase();
+  const hit = (DATA.products||[]).find(p=> p.uom && (p.product||'').trim().toUpperCase()===key);
+  if(hit) return uomDisplay(hit.uom);
+  const m = (productName||'').match(/\(([^)]+)\)\s*$/);
   return m ? m[1] : 'UNITS';
 }
 
