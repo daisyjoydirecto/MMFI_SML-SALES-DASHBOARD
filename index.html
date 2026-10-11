@@ -1113,6 +1113,7 @@ function uomDisplay(u){
   const map = {hds:'Heads', hd:'Heads', head:'Heads', heads:'Heads', pcs:'Pcs', pc:'Pcs', kgs:'Kgs', kg:'Kgs', chicks:'Chicks', chick:'Chicks'};
   return map[s] || (s.charAt(0).toUpperCase()+s.slice(1));
 }
+function uomShort(item){ return ((item&&item.uom)||'').trim().replace(/\.$/,'').toLowerCase(); }
 function unitLabel(productName){
   const key = (productName||'').trim().toUpperCase();
   const hit = (DATA.products||[]).find(p=> p.uom && (p.product||'').trim().toUpperCase()===key);
@@ -1476,7 +1477,7 @@ function initTier2(){
       document.getElementById('p2-detail-cap').textContent = matchedFarmKey
         ? `No sales recorded yet for ${farmLabel(matchedFarmKey)}`
         : 'No monthly breakdown in source data for this product';
-      document.getElementById('p2-detail-content').innerHTML = `<div class="tbl-scroll"><table><thead><tr><th>Year</th><th class="r">Qty</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
+      document.getElementById('p2-detail-content').innerHTML = `<div class="tbl-scroll"><table><thead><tr><th>Year</th><th class="r">Qty (${unit})</th><th class="r">Amount</th><th class="r">Unit Rate</th></tr></thead>
         <tbody>${years.map((y,i)=>`<tr ${(!isAll && i===focusIdx)?`style="background:${C.hoverTan};"`:''}><td>${y}</td><td class="r num-font">${NUM(qtys[i])}</td><td class="r num-font">${PHP(amts[i])}</td><td class="r num-font">${rates[i]?PHP(rates[i]):'—'}</td></tr>`).join('')}</tbody></table></div>`;
     }
   }
@@ -1521,7 +1522,7 @@ function initTier3(){
     scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const t=itemTotal(item,yrs); if(t>0 && (!leadItem || t>leadItem.total)) leadItem={name:item.product, total:t}; }));
 
     let allItems = [];
-    scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const total=itemTotal(item,yrs); const qty=yrs.reduce((s2,y)=>s2+((item.years[y]||{}).qty||0),0); if(total>0||qty>0) allItems.push({name:item.product, group:g, total, qty}); }));
+    scopedGroups.forEach(g=> nonMain.filter(p=>p.category===g).forEach(item=>{ const total=itemTotal(item,yrs); const qty=yrs.reduce((s2,y)=>s2+((item.years[y]||{}).qty||0),0); if(total>0||qty>0) allItems.push({name:item.product, group:g, total, qty, uom:uomShort(item)}); }));
     const activeLineItems = allItems.filter(i=>i.total>0).length;
     const yearRangeLabel = yearFilter==='ALL' ? `${years[0]}–${years[years.length-1]}` : String(focusYear);
     const catLabel = catFilter==='ALL' ? 'All Categories' : titleCase(catFilter);
@@ -1547,7 +1548,7 @@ function initTier3(){
     const topItems = allItems.filter(i=>i[tKey]>0).slice(0,5);
     document.getElementById('p3-chart2-title').textContent = 'Top 5 contributing line items';
     document.getElementById('p3-chart2-cap').textContent = `Share of the top 5 by total ${yearRangeLabel} ${tQ?'quantity':'sales value'}${catFilter!=='ALL'?' — '+titleCase(catFilter):''}`;
-    drawPieChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)), values:topItems.map(i=>i[tKey]), valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
+    drawPieChart('chart-mcp-top', { labels:topItems.map(i=>titleCase(i.name)+(tQ&&i.uom?` (${i.uom})`:'')), values:topItems.map(i=>i[tKey]), valueFmt: tQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
 
     let html = catFilter==='ALL' ? '' : '<div class="subsection-label" style="color:var(--ink);">Detailed category breakdown</div>';
     const grpCharts = [];
@@ -1561,13 +1562,13 @@ function initTier3(){
         <div class="chart-grid even" style="margin-bottom:10px;">
         <div class="card card-pad"><div class="card-head"><div><div class="card-title">${titleCase(g)} — line items</div><div class="card-cap">Ranked by ${yearRangeLabel} ${gQ?'quantity':'sales value'}</div></div><div class="seg-toggle" id="tg-grp-${gi}"></div></div>
         <div class="chart-h" id="chart-grp-${gi}" style="height:${Math.max(150, nShown*30+20)}px;"></div></div>
-        <div class="card card-pad"><div class="card-head"><div><div class="card-title">Average price per item</div><div class="card-cap">${titleCase(g)} — total sales ÷ total quantity, ${yearRangeLabel}</div></div></div>
+        <div class="card card-pad"><div class="card-head"><div><div class="card-title">Average price per item</div><div class="card-cap">${titleCase(g)} — total sales ÷ total quantity (per UoM), ${yearRangeLabel}</div></div></div>
         <div class="chart-h" id="chart-grp-price-${gi}" style="height:${Math.max(150, nShown*30+20)}px;"></div></div>
         </div>
         <div class="card card-pad"><div class="tbl-scroll"><table>
-        <thead><tr><th>Item</th>${years.map(y=>`<th class="r">${y} Qty</th><th class="r">${y} ₱</th>`).join('')}</tr></thead><tbody>`;
+        <thead><tr><th>Item</th><th>UoM</th>${years.map(y=>`<th class="r">${y} Qty</th><th class="r">${y} ₱</th>`).join('')}</tr></thead><tbody>`;
       items.forEach(item=>{
-        html += `<tr><td class="name">${titleCase(item.product)}</td>`;
+        html += `<tr><td class="name">${titleCase(item.product)}</td><td>${uomShort(item)||'—'}</td>`;
         years.forEach(y=>{
           const hi = (yearFilter!=='ALL' && y===focusYear) ? `style="background:${C.hoverTan};"` : '';
           html += `<td class="r num-font" ${hi}>${NUM((item.years[y]||{}).qty||0)}</td><td class="r num-font" ${hi}>${PHP((item.years[y]||{}).amount||0)}</td>`;
@@ -1578,12 +1579,12 @@ function initTier3(){
     });
     document.getElementById('p3-groups').innerHTML = html;
     grpCharts.forEach(({g,items},gi)=>{
-      const priceRows = items.map(it=>{ const q=yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0); return {name:it.product, v: q>0 ? itemTotal(it,yrs)/q : 0}; }).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
-      drawHBarChart('chart-grp-price-'+gi, { labels:priceRows.map(r=>titleCase(r.name)), values:priceRows.map(r=>r.v), color:C.olive, valueFmt:(v,full)=>'₱'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) });
+      const priceRows = items.map(it=>{ const q=yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0); return {name:it.product, uom:uomShort(it), v: q>0 ? itemTotal(it,yrs)/q : 0}; }).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
+      drawHBarChart('chart-grp-price-'+gi, { labels:priceRows.map(r=>titleCase(r.name)+(r.uom?` (per ${r.uom})`:'')), values:priceRows.map(r=>r.v), color:C.olive, valueFmt:(v,full)=>'₱'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) });
       makeMetricToggle('tg-grp-'+gi, mGrp[g]||'amount', m=>{ mGrp[g]=m; render(); });
       const gQ = (mGrp[g]||'amount')==='qty';
-      const rows = items.map(it=>({name:it.product, v: gQ ? yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0) : itemTotal(it,yrs)})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
-      drawHBarChart('chart-grp-'+gi, { labels:rows.map(r=>titleCase(r.name)), values:rows.map(r=>r.v), color:DATA.catColor[g]||C.oliveDark, valueFmt: gQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
+      const rows = items.map(it=>({name:it.product, uom:uomShort(it), v: gQ ? yrs.reduce((s2,y)=>s2+((it.years[y]||{}).qty||0),0) : itemTotal(it,yrs)})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,12);
+      drawHBarChart('chart-grp-'+gi, { labels:rows.map(r=>titleCase(r.name)+(gQ&&r.uom?` (${r.uom})`:'')), values:rows.map(r=>r.v), color:DATA.catColor[g]||C.oliveDark, valueFmt: gQ ? ((v,full)=>NUM(v,full?{}:{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})) });
     });
   }
   registerChart(render);
