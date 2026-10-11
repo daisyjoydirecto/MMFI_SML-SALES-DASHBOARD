@@ -1032,7 +1032,7 @@ function parseMainProductsMonthly(rows){
 
     if(MONTH_NAMES.includes(nonEmpty[0].s.toUpperCase())){
       monthCols = [];
-      nonEmpty.forEach(({c,s})=>{ const mi = MONTH_NAMES.indexOf(s.toUpperCase()); if(mi>=0) monthCols.push({c, month:mi}); });
+      nonEmpty.forEach(({c,s})=>{ const mi = MONTH_NAMES.indexOf(s.toUpperCase()); if(mi>=0) monthCols.push({c, month:mi}); else if(/^YEARLY AVERAGE$/i.test(s)) monthCols.push({c, month:12}); });
       continue;
     }
 
@@ -1078,6 +1078,7 @@ function combineMonthlyBlocks(blocks){
   (blocks||[]).forEach(b=>{
     if(!b) return;
     Object.keys(b).forEach(metric=>{
+      if(/^AVERAGE (RATE|PRICE)/.test(metric)) return;   // rates can't be summed; recomputed from peso ÷ kilos
       if(!out[metric]) out[metric] = {};
       Object.keys(b[metric]).forEach(year=>{
         if(!out[metric][year]) out[metric][year] = {};
@@ -1304,19 +1305,37 @@ function initTier2(){
     const monthlyRateQty = block ? (block[rateQtyMetric]||{}) : {};
     const rateUnitLabel = useKiloRate ? 'kilo' : (unit ? unit.replace(/s$/i,'').toLowerCase() : 'unit');
 
+    // Kilo-priced products (hogs, cattle): use the sheet's own "AVERAGE RATE PER KILO" table.
+    const monthlyRateTbl = (block && useKiloRate) ? (block['AVERAGE RATE PER KILO']||{}) : {};
+    const hasRateTbl = useKiloRate && hasData(monthlyRateTbl);
+    function sheetRateForYear(y){
+      const rt = monthlyRateTbl[y]; if(!rt) return null;
+      if(rt[12]>0) return rt[12];                       // sheet's own yearly average, if the table has one
+      const kd = monthlyRateQty[y]||{};
+      let sA=0,sK=0,sum=0,c=0;
+      for(let m=0;m<12;m++){ const r=rt[m]||0; if(r>0){ sum+=r; c++; const k=kd[m]||0; if(k>0){ sA+=r*k; sK+=k; } } }
+      if(sK>0) return sA/sK;
+      return c ? sum/c : null;
+    }
     function rateForYear(y){
+      if(hasRateTbl) return sheetRateForYear(y);
       if(hasMonthly){
         const qd = monthlyRateQty[y]||{}, ad = monthlyAmt[y]||{};
         let sumQ=0, sumA=0;
         for(let m=0;m<12;m++){ sumQ += qd[m]||0; sumA += ad[m]||0; }
         if(sumQ>0) return sumA/sumQ;
       }
+      if(useKiloRate) return null;   // annual qty is in heads, so amount÷qty is not a per-kilo rate
       const idx = years.indexOf(y);
       return qtys[idx] ? amts[idx]/qtys[idx] : null;
     }
     const rates = years.map(y=>rateForYear(y));
     let overallRate;
-    if(hasMonthly){
+    if(hasRateTbl){
+      let sA=0,sK=0,sum=0,c=0;
+      years.forEach(y=>{ const rt=monthlyRateTbl[y]||{}, kd=monthlyRateQty[y]||{}; for(let m=0;m<12;m++){ const r=rt[m]||0; if(r>0){ sum+=r; c++; const k=kd[m]||0; if(k>0){ sA+=r*k; sK+=k; } } } });
+      overallRate = sK>0 ? sA/sK : (c ? sum/c : null);
+    } else if(hasMonthly){
       let sumAllQ=0, sumAllA=0;
       years.forEach(y=>{ const qd=monthlyRateQty[y]||{}, ad=monthlyAmt[y]||{}; for(let m=0;m<12;m++){ sumAllQ+=qd[m]||0; sumAllA+=ad[m]||0; } });
       overallRate = sumAllQ>0 ? sumAllA/sumAllQ : (totalQty?totalAmt/totalQty:null);
@@ -1402,8 +1421,8 @@ function initTier2(){
       drawLineChart('chart-product-rate', {
         labels: MONTH_ABBR,
         series: monthlyYears.map((y,yi)=>{
-          const qd = monthlyRateQty[y]||{}, ad = monthlyAmt[y]||{};
-          const data = MONTH_ABBR.map((_,mi)=> qd[mi] ? (ad[mi]||0)/qd[mi] : null);
+          const qd = monthlyRateQty[y]||{}, ad = monthlyAmt[y]||{}, rt = monthlyRateTbl[y]||{};
+          const data = MONTH_ABBR.map((_,mi)=> hasRateTbl ? (rt[mi]>0 ? rt[mi] : null) : (qd[mi] ? (ad[mi]||0)/qd[mi] : null));
           return isAll
             ? { label:y, color: YEAR_PALETTE[yi % YEAR_PALETTE.length], bold:false, opacity:1, showPoints:true, data }
             : { label:y, color: y===focusY ? C.oliveDark : C.greySoft, bold: y===focusY, opacity: y===focusY?1:0.55, showPoints: y===focusY, data };
