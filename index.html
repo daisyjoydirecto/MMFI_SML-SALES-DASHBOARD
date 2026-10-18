@@ -41,7 +41,6 @@
   }
   .btn:hover{ background:var(--olive); color:var(--cream); }
   .btn.active{ background:var(--olive-dark); color:var(--cream); border-color:var(--olive-dark); }
-  a.btn{ text-decoration:none; display:inline-block; }
 
   /* ---- header ---- */
   .hdr{ background:var(--ink); color:#f2f2f2; padding:14px 20px 12px 116px; border-bottom:4px solid var(--olive); }
@@ -68,6 +67,9 @@
   .sticky-top{ position:sticky; top:0; z-index:100; }
   .qnav{ max-width:none; margin:0 auto; padding:6px 20px 6px 116px; display:flex; gap:8px; flex-wrap:wrap; }
 
+  a.btn{ text-decoration:none; display:inline-block; }
+  .qnav a.btn.push-right{ margin-left:auto; border:0; background:transparent; box-shadow:none; padding-left:6px; padding-right:6px; }
+  .qnav a.btn.push-right:hover{ background:transparent; color:var(--olive-dark); text-decoration:underline; text-underline-offset:4px; }
   /* ---- main ---- */
   .wrap{ max-width:none; margin:0 auto; padding:0 20px 60px 0; }
   .tier{ padding-top:0; margin-top:0; scroll-margin-top:64px; display:none; }
@@ -267,6 +269,7 @@
     <button class="btn" data-tier="t3">3. MCP &amp; By-Products</button>
     <button class="btn" data-tier="t4">4. Customers</button>
     <button class="btn" data-tier="t5">5. Analysis</button>
+    <a class="btn push-right" href="https://daisyjoydirecto.github.io/mcp_inventory_ii/" target="_blank" rel="noopener" title="Open the MCP inventory dashboard in a new tab">MCP Dashboard <span aria-hidden="true">↗</span></a>
   </nav>
 </div>
 
@@ -884,20 +887,18 @@ const MONTHLY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vREtg7W
 const MONTHLY_CSV_URL_FALLBACK = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1256764504`;
 
 async function fetchCSVOnce(url){
-  const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(), 12000); // don't hang forever if the request stalls
-  try{
-    const res = await fetch(url, {cache:"no-store", signal:controller.signal});
+  // No AbortSignal: some browser extensions/translators proxy fetch() via postMessage and choke on it
+  // ("AbortSignal object could not be cloned"). A plain Promise.race timeout works everywhere.
+  const timeout = new Promise((_,rej)=> setTimeout(()=>rej(new Error('Request timed out')), 12000));
+  const work = (async()=>{
+    const res = await fetch(url, {cache:"no-store"});
     if(!res.ok) throw new Error("HTTP "+res.status);
     const text = await res.text();
     if(text.trim().startsWith("<")) throw new Error("Got HTML instead of CSV");
     return Papa.parse(text.trim(), {skipEmptyLines:false}).data;
-  }catch(err){
-    if(err.name === 'AbortError') throw new Error('Request timed out');
-    throw err;
-  }finally{
-    clearTimeout(timer);
-  }
+  })();
+  work.catch(()=>{});
+  return Promise.race([work, timeout]);
 }
 async function fetchCSV(primaryUrl, fallbackUrl){
   try{ return await fetchCSVOnce(primaryUrl); }
@@ -1777,9 +1778,9 @@ function initTier4(){
 })();
 
 /* ---------------- tab switching ---------------- */
-document.querySelectorAll('.qnav .btn').forEach(btn=>{
+document.querySelectorAll('.qnav .btn[data-tier]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.qnav .btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.qnav .btn[data-tier]').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tier').forEach(t=>t.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tier).classList.add('active');
