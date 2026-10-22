@@ -252,7 +252,7 @@
   <div class="hdr-inner">
     <div class="brand">
       <div class="eyebrow">M. Montesclaros Farms Inc. — Sayre Highway, Hagkol</div>
-      <h1>Sales Dashboard and Analysis</h1>
+      <h1>Year-over-Year Sales Analysis</h1>
       <div class="sub" id="hdr-sub">Sales Meat and Livestock Department</div>
     </div>
     <div class="sync">
@@ -268,7 +268,7 @@
     <button class="btn" data-tier="t2">2. Main Products</button>
     <button class="btn" data-tier="t3">3. MCP &amp; By-Products</button>
     <button class="btn" data-tier="t4">4. Customers</button>
-    <button class="btn" data-tier="t5">5. Analysis</button>
+    <button class="btn" data-tier="t5">5. Analysis and Ledger</button>
     <a class="btn push-right" href="https://daisyjoydirecto.github.io/mcp_inventory_ii/" target="_blank" rel="noopener" title="Open the MCP inventory dashboard in a new tab">MCP Dashboard <span aria-hidden="true">↗</span></a>
   </nav>
 </div>
@@ -421,11 +421,11 @@
     <div class="tier-layout">
       <aside class="tier-sidebar">
         <div class="sidebar-sticky">
-          <div class="section-title">5. Analysis</div>
+          <div class="section-title">5. Analysis and Ledger</div>
           <div class="section-sub">Companion analysis dashboards — pick one to view it here</div>
           <div class="sidebar-label">Filters</div>
           <div class="filters-block">
-            <div class="filter-row"><span class="flabel">Analysis:</span><div class="btnrow" id="p5-pills"></div></div>
+            <div class="filter-row"><span class="flabel">View:</span><div class="btnrow" id="p5-pills"></div></div>
           </div>
         </div>
       </aside>
@@ -1751,6 +1751,7 @@ function initTier4(){
   const ITEMS = [
     {key:'hatch', label:'Hatchability',     url:'https://daisyjoydirecto.github.io/hatchability-update/', cap:'Hatchery performance — hatchability & chick quality'},
     {key:'sal',   label:'MCP-Salary Deduct', url:'https://daisyjoydirecto.github.io/salary_deduct',        cap:'Meat Cutting Plant — salary deduction analysis'},
+    {key:'saldl', label:'MCP-Salary Deduct Ledger', url:'https://daisyjoydirecto.github.io/sml-mcpsalesentry/?sdview=v5d9a7849521d47e6bdcf', cap:'Meat Cutting Plant — salary deduction ledger'},
     {key:'daily', label:'MCP-Daily Transaction', url:'https://script.google.com/macros/s/AKfycbykZQ6nykPhKxgQ9wX2rLMI3mU2HdwpW-Du6-FsNLc-7NBN47Ud7JU-98_s1af_xPNk/exec?view=daily&key=dcaa375c1a6bdc37a7d92', cap:'Meat Cutting Plant — daily transactions'},
     {key:'cash',  label:'MCP-Cash Ledger',       url:'https://script.google.com/macros/s/AKfycbykZQ6nykPhKxgQ9wX2rLMI3mU2HdwpW-Du6-FsNLc-7NBN47Ud7JU-98_s1af_xPNk/exec?view=cash&key=ca5559973a2c9903a9db5',  cap:'Meat Cutting Plant — cash ledger'}
   ];
@@ -1809,7 +1810,9 @@ function finishLoad(){
   watchAppSizing();
 }
 
+const CACHE_KEY = 'mmfi-sales-dashboard-cache-v1';
 async function loadData(){
+  let usedCache = false;
   document.getElementById('loadingBanner').style.display='flex';
   document.getElementById('errorBanner').style.display='none';
   document.getElementById('syncDot').classList.remove('err');
@@ -1838,22 +1841,38 @@ async function loadData(){
       }
     }
 
-    await ensurePapa();
-    const [prodRows, custRows] = await Promise.all([ fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK), fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK) ]);
-    DATA.products = parseProducts(prodRows);
-    DATA.customers = parseCustomers(custRows);
-
-    // Monthly detail sheet is optional/supplementary — if it fails to load,
-    // the rest of the dashboard still works fine on annual data alone.
-    try{
-      const monthlyRows = await fetchCSV(MONTHLY_CSV_URL, MONTHLY_CSV_URL_FALLBACK);
-      DATA.monthlyMain = parseMainProductsMonthly(monthlyRows);
-    }catch(mErr){
-      console.warn('Monthly product sheet unavailable:', mErr);
-      DATA.monthlyMain = {};
+    // Fast path: show the last saved data instantly, then refresh from the sheet in the background.
+    let cachedJSON = null;
+    if(!initialized){
+      try{ cachedJSON = localStorage.getItem(CACHE_KEY); }catch(_){}
+      if(cachedJSON){
+        try{
+          const c = JSON.parse(cachedJSON);
+          DATA.products = c.products||[]; DATA.customers = c.customers||[]; DATA.monthlyMain = c.monthlyMain||{};
+          finishLoad();
+          document.getElementById('app').style.display='block';
+          document.getElementById('loadingBanner').style.display='none';
+          document.getElementById('syncText').textContent = 'Updating…';
+          usedCache = true;
+        }catch(_){ cachedJSON = null; usedCache = false; }
+      }
     }
 
-    finishLoad();
+    await ensurePapa();
+    // All three sheets download in parallel (the monthly one used to wait for the other two).
+    const [prodRows, custRows, monthlyRows] = await Promise.all([
+      fetchCSV(PRODUCTS_CSV_URL, PRODUCTS_CSV_URL_FALLBACK),
+      fetchCSV(CUSTOMERS_CSV_URL, CUSTOMERS_CSV_URL_FALLBACK),
+      // Monthly detail sheet is optional — if it fails, the rest still works on annual data.
+      fetchCSV(MONTHLY_CSV_URL, MONTHLY_CSV_URL_FALLBACK).catch(mErr=>{ console.warn('Monthly product sheet unavailable:', mErr); return null; })
+    ]);
+    const fresh = { products: parseProducts(prodRows), customers: parseCustomers(custRows), monthlyMain: monthlyRows ? parseMainProductsMonthly(monthlyRows) : {} };
+    const freshJSON = JSON.stringify(fresh);
+    try{ localStorage.setItem(CACHE_KEY, freshJSON); }catch(_){}
+    if(!(usedCache && freshJSON === cachedJSON)){      // skip the re-render if nothing changed
+      DATA.products = fresh.products; DATA.customers = fresh.customers; DATA.monthlyMain = fresh.monthlyMain;
+      finishLoad();
+    }
 
     document.getElementById('app').style.display='block';
     document.getElementById('loadingBanner').style.display='none';
@@ -1863,6 +1882,7 @@ async function loadData(){
     console.error(err);
     document.getElementById('loadingBanner').style.display='none';
     document.getElementById('syncDot').classList.add('err');
+    if(usedCache){ document.getElementById('syncText').textContent = 'Offline — showing saved data'; return; }
     document.getElementById('syncText').textContent = 'Sync failed';
     const eb = document.getElementById('errorBanner');
     eb.style.display='flex';
