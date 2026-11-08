@@ -333,6 +333,7 @@
           <div class="sidebar-label">Filters</div>
           <div class="filters-block">
             <div class="filter-row"><span class="flabel">Product:</span><div class="btnrow" id="p2-pills"></div></div>
+            <div class="filter-row" id="p2-farm-row" style="display:none;"><span class="flabel">Live Hog - Fattener:</span><div class="btnrow" id="p2-farm-pills"></div></div>
             <div class="filter-row"><span class="flabel">Focus Year:</span><div class="btnrow" id="p2-year-pills"></div></div>
           </div>
         </div>
@@ -1246,24 +1247,59 @@ function heatColor(v, maxV){
 }
 
 function initTier2(){
-  const mains = DATA.products.filter(p=>p.category.toUpperCase().includes('MAIN PRODUCT'));
+  const rawMains = DATA.products.filter(p=>p.category.toUpperCase().includes('MAIN PRODUCT'));
   const years = DATA.years;
-  let currentProduct = mains[0] && mains[0].product;
+
+  // Product filter = Live Hog - Fattener (Kinate + Mapayag, with its own Farm sub-filter),
+  // Live Cattle and Hatching Eggs Class A; any other main product keeps its own pill.
+  const HOG_LABEL = 'Live Hog - Fattener';
+  const farmOfName = n => /KINATE/i.test(n) ? 'KINATE' : (/MAPAYAG/i.test(n) ? 'MAPAYAG' : '');
+  const hogParts = rawMains.filter(p=>farmOfName(p.product));
+  const restMains = rawMains.filter(p=>!farmOfName(p.product));
+  const groupOf = p => /CATTLE/i.test(p.product) ? 0 : (/EGG/i.test(p.product) ? 1 : 2);
+  const labelFor = p => /CATTLE/i.test(p.product) ? 'Live Cattle' : (/HATCHING EGGS\s*A\b/i.test(p.product) ? 'Hatching Eggs Class A' : titleCase(p.product));
+  const groups = [];
+  if(hogParts.length) groups.push({key:'HOG', label:HOG_LABEL, hog:true});
+  restMains.slice().sort((a,b)=>groupOf(a)-groupOf(b)).forEach(p=>groups.push({key:'P:'+p.product, label:labelFor(p), part:p}));
+  const dispName = p => p.label || titleCase(p.product);
+  function sumParts(parts){
+    const yrs = {};
+    parts.forEach(pt=> Object.keys(pt.years||{}).forEach(y=>{
+      if(!yrs[y]) yrs[y]={qty:0, amount:0};
+      yrs[y].qty += (pt.years[y].qty||0); yrs[y].amount += (pt.years[y].amount||0);
+    }));
+    return {product:'LIVE HOG - FATTENER', label:HOG_LABEL, category:parts[0].category, uom:parts[0].uom, years:yrs};
+  }
+  const hogFarms = Array.from(new Set(hogParts.map(p=>farmOfName(p.product))));
+  let currentProduct = groups[0] && groups[0].key;
+  let currentFarm = 'ALL';
   let currentYear = 'ALL';
   let mAnnual='amount', mMonthly='qty', mHeat='qty';
   makeMetricToggle('tg-p2-annual', mAnnual, m=>{ mAnnual=m; render(); });
   makeMetricToggle('tg-p2-monthly', mMonthly, m=>{ mMonthly=m; render(); });
   makeMetricToggle('tg-p2-heat', mHeat, m=>{ mHeat=m; render(); });
 
-  document.getElementById('t2-sub').textContent = mains.map(p=>titleCase(p.product)).join(', ') + " — the company's core revenue lines";
+  document.getElementById('t2-sub').textContent = groups.map(g=>g.label).join(', ') + " — the company's core revenue lines";
 
-  makePills('p2-pills', mains.map(p=>({value:p.product,label:titleCase(p.product)})), currentProduct, v=>{ currentProduct=v; render(); });
+  function farmRow(){
+    const row = document.getElementById('p2-farm-row');
+    const show = currentProduct==='HOG' && hogFarms.length>1;
+    row.style.display = show ? '' : 'none';
+    if(show) makePills('p2-farm-pills', [{value:'ALL',label:'Overall'}, ...hogFarms.map(f=>({value:f,label:titleCase(f)}))], currentFarm, v=>{ currentFarm=v; render(); });
+  }
+  makePills('p2-pills', groups.map(g=>({value:g.key,label:g.label})), currentProduct, v=>{ currentProduct=v; currentFarm='ALL'; farmRow(); render(); });
+  farmRow();
   makePills('p2-year-pills', [{value:'ALL',label:'All Years'}, ...years.map(y=>({value:y,label:y}))], currentYear, v=>{ currentYear=v; render(); });
 
   function render(){
-    const p = mains.find(x=>x.product===currentProduct) || mains[0];
-    if(!p) return;
-    const unit = unitLabel(p.product);
+    const g = groups.find(x=>x.key===currentProduct) || groups[0];
+    if(!g) return;
+    let p;
+    if(g.hog){
+      if(currentFarm==='ALL' || hogFarms.length<2) p = hogParts.length>1 ? sumParts(hogParts) : {...hogParts[0], label:HOG_LABEL};
+      else { const part = hogParts.find(x=>farmOfName(x.product)===currentFarm); p = {...part, label:`${HOG_LABEL} — ${titleCase(currentFarm)}`}; }
+    } else p = {...g.part, label:g.label};
+    const unit = p.uom ? uomDisplay(p.uom) : unitLabel(p.product);
     const isAll = currentYear==='ALL';
     const focusIdx = isAll ? null : years.indexOf(currentYear);
     const focusY = isAll ? null : years[focusIdx];
@@ -1415,8 +1451,8 @@ function initTier2(){
       const mQ = mMonthly==='qty', mSrc = mQ ? monthlyQty : monthlyAmt;
       document.getElementById('p2-qty-title').textContent = mQ ? `Monthly ${mUnit.toLowerCase()} by year` : 'Monthly sales value by year';
       document.getElementById('p2-qty-cap').textContent = isAll
-        ? `${titleCase(p.product)} — all years overlaid, ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`
-        : `${titleCase(p.product)} — ${focusY} highlighted against ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
+        ? `${dispName(p)} — all years overlaid, ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`
+        : `${dispName(p)} — ${focusY} highlighted against ${monthlyYears[0]}–${monthlyYears[monthlyYears.length-1]}`;
       drawLineChart('chart-product-qty', {
         labels: MONTH_ABBR,
         series: monthlyYears.map((y,yi)=> isAll
@@ -1429,8 +1465,8 @@ function initTier2(){
       // ---- Bottom-left: monthly avg rate overlay ----
       document.getElementById('p2-rate-title').textContent = `Average unit rate (per ${rateUnitLabel})`;
       document.getElementById('p2-rate-cap').textContent = isAll
-        ? `${titleCase(p.product)} — monthly average price per ${rateUnitLabel} (PHP), all years overlaid`
-        : `${titleCase(p.product)} — monthly average price per ${rateUnitLabel} (PHP), ${focusY} highlighted`;
+        ? `${dispName(p)} — monthly average price per ${rateUnitLabel} (PHP), all years overlaid`
+        : `${dispName(p)} — monthly average price per ${rateUnitLabel} (PHP), ${focusY} highlighted`;
       drawLineChart('chart-product-rate', {
         labels: MONTH_ABBR,
         series: monthlyYears.map((y,yi)=>{
@@ -1471,7 +1507,7 @@ function initTier2(){
       drawLineChart('chart-product-qty', { labels:years, series:[{label:fQ?'Volume':'Sales value', color:C.olive, bold:true, data:fQ?qtys:amts}], valueFmt: fQ ? ((v,full)=>full?NUM(v):NUM(v,{compact:true})) : ((v,full)=>full?PHP(v):PHP(v,{compact:true})), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-rate-title').textContent = 'Average unit rate';
-      document.getElementById('p2-rate-cap').textContent = `${titleCase(p.product)} — PHP per unit, by year` + (!isAll ? `, ${focusY} bold` : '');
+      document.getElementById('p2-rate-cap').textContent = `${dispName(p)} — PHP per unit, by year` + (!isAll ? `, ${focusY} bold` : '');
       drawLineChart('chart-product-rate', { labels:years, series:[{label:'Unit rate', color:C.oliveDark, bold:true, data:rates}], valueFmt:(v,full)=>'₱'+v.toFixed(full?2:0), area:true, legend:false, highlightIndex:focusIdx, showValueLabels:true });
 
       document.getElementById('p2-detail-title').textContent = 'Year-by-year detail';
