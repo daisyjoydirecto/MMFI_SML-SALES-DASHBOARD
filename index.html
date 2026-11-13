@@ -437,6 +437,13 @@
             <div class="card-cap" id="p5-cap"></div>
           </div><a class="seg-toggle" id="p5-open" href="#" target="_blank" rel="noopener" style="text-decoration:none;"><span class="seg on">Open in new tab ↗</span></a></div>
           <iframe id="p5-frame" title="Analysis dashboard" loading="lazy" style="width:100%; height:calc(100vh - 230px); min-height:560px; border:1px solid var(--line); border-radius:10px; background:#fff; margin-top:10px;"></iframe>
+          <div id="p5-second" style="display:none; margin-top:22px;">
+            <div class="card-head"><div>
+              <div class="card-title" id="p5-title2"></div>
+              <div class="card-cap" id="p5-cap2"></div>
+            </div><a class="seg-toggle" id="p5-open2" href="#" target="_blank" rel="noopener" style="text-decoration:none;"><span class="seg on">Open in new tab ↗</span></a></div>
+            <iframe id="p5-frame2" title="Analysis dashboard — daily purchases" loading="lazy" style="width:100%; height:calc(100vh - 230px); min-height:560px; border:1px solid var(--line); border-radius:10px; background:#fff; margin-top:10px;"></iframe>
+          </div>
           <div class="card-cap" style="margin-top:8px;">If the page stays blank, your browser or the host is blocking embedding — use “Open in new tab”.</div>
         </div>
       </div>
@@ -1787,20 +1794,33 @@ function initTier4(){
   const ITEMS = [
     {key:'a1', label:'Analysis-01 Hatchability',            url:'https://daisyjoydirecto.github.io/hatchability-update/', cap:'Hatchery performance — hatchability & chick quality'},
     {key:'a2', label:'Analysis-02 EFS Impact vs Regular SD', url:'https://daisyjoydirecto.github.io/salary_deduct',        cap:'Employee Food Support impact vs regular salary deduction'},
-    {key:'a3', label:'Analysis-03 MCP Daily Transaction',    url:'https://daisyjoydirecto.github.io/sml-mcpsalesentry/?dview=v6b495c3dd5aa446fa39e', cap:'Daily sales — Cash vs Credit / Salary deduct  ·  Daily purchases per item — Walk-in · Volume · Salary deduct'},
-    {key:'l1', label:'Ledger-01 MCP Salary Deduction',       url:'https://daisyjoydirecto.github.io/mcp_inventory_ii/?sdview=ve84960fb80014b7ea755', cap:'Meat Cutting Plant — salary deduction ledger'},
-    {key:'l2', label:'Ledger-02 MCP Cash Transaction',       url:'https://daisyjoydirecto.github.io/sml-mcpsalesentry/?cview=v68ac9d0dcc834e08b8be', cap:'Meat Cutting Plant — daily cash ledger'}
+    // Analysis-03 shows two views from the MCP Inventory 2.0 app, stacked one above the other.
+    {key:'a3', label:'Analysis-03 MCP Daily Transaction',
+      url:'https://daisyjoydirecto.github.io/mcp_inventory_ii/?dview=vd13fa903e1a8460dab6e', cap:'Daily sales — Cash vs Credit / Salary deduct',
+      second:{ title:'Daily purchases per item', url:'https://daisyjoydirecto.github.io/mcp_inventory_ii/?iview=ve139979bd2dc4a4988c9', cap:'Walk-in · Volume · Salary deduct' }}
+    // Temporarily removed (restore by moving back into ITEMS above):
+    // {key:'l1', label:'Ledger-01 MCP Salary Deduction', url:'https://daisyjoydirecto.github.io/mcp_inventory_ii/?sdview=ve84960fb80014b7ea755', cap:'Meat Cutting Plant — salary deduction ledger'},
+    // {key:'l2', label:'Ledger-02 MCP Cash Transaction', url:'https://daisyjoydirecto.github.io/sml-mcpsalesentry/?cview=v68ac9d0dcc834e08b8be', cap:'Meat Cutting Plant — daily cash ledger'}
   ];
   const pills = document.getElementById('p5-pills');
   const frame = document.getElementById('p5-frame');
+  const frame2 = document.getElementById('p5-frame2');
   let cur = null;
   function select(it){
     cur = it.key;
     pills.querySelectorAll('.btn').forEach(b=>b.classList.toggle('active', b.dataset.key===it.key));
-    document.getElementById('p5-title').textContent = it.label;
-    document.getElementById('p5-cap').textContent = it.cap;
+    document.getElementById('p5-title').textContent = it.second ? 'Daily sales — Cash vs Credit / Salary deduct' : it.label;
+    document.getElementById('p5-cap').textContent = it.second ? it.label : it.cap;
     document.getElementById('p5-open').href = it.url;
     if(frame.dataset.loaded !== it.key){ frame.src = it.url; frame.dataset.loaded = it.key; }
+    const sec = document.getElementById('p5-second');
+    if(it.second){
+      sec.style.display = '';
+      document.getElementById('p5-title2').textContent = it.second.title;
+      document.getElementById('p5-cap2').textContent = it.second.cap;
+      document.getElementById('p5-open2').href = it.second.url;
+      if(frame2.dataset.loaded !== it.key){ frame2.src = it.second.url; frame2.dataset.loaded = it.key; }
+    } else { sec.style.display = 'none'; frame2.removeAttribute('src'); delete frame2.dataset.loaded; }
   }
   ITEMS.forEach(it=>{
     const b = document.createElement('button');
